@@ -507,9 +507,13 @@ async function initSB(){
   const {data}=await S.sb.auth.getSession();
   if(data.session){S.token=data.session.access_token;Acc.save(data.session);await onLogin(data.session.user)}else Dev.check();
 }
-function resetSession(){try{S.rt&&S.sb.removeChannel(S.rt)}catch{}S.rt=null;S.user=null;S.profile=null;S.roles=[];S.userRoles=[];S.channels=[];S.msgs={};S.unread={};S.pings={};S.dmKeys=[];S.items=new Map();S.packs=[];S.inv={};S.trades=[];S.warns=[];S.notifs=[];S.ban=null;Chat.cur=null;Settings.draft=null;AI.chats=[];AI.cur=null;AI.pending=[]}
+function resetSession(){try{S.rt&&S.sb.removeChannel(S.rt)}catch{}S.rt=null;S.loggingIn=false;S.user=null;S.profile=null;S.roles=[];S.userRoles=[];S.channels=[];S.msgs={};S.unread={};S.pings={};S.dmKeys=[];S.items=new Map();S.packs=[];S.inv={};S.trades=[];S.warns=[];S.notifs=[];S.ban=null;Chat.cur=null;Settings.draft=null;AI.chats=[];AI.cur=null;AI.pending=[]}
 async function onLogin(user){
-  resetSession();S.user=user;await loadAll();subscribe();
+  if(S.user&&S.user.id===user.id&&(S.rt||S.loggingIn))return; // already signing in (auth listener + getSession both fire on load)
+  const run=S.loginRun=(S.loginRun||0)+1;
+  resetSession();S.user=user;S.loggingIn=true;await loadAll();
+  if(run!==S.loginRun)return; // a newer login superseded this one
+  S.loggingIn=false;subscribe();
   const st=S.profile?.settings;if(st&&Object.keys(st).length){S.settings={...S.settings,...st};lsSet('fiji.settings',S.settings);applyTheme()}
   Acc.meta();renderChrome();refreshAll();
   Dev.check();loadEco();startPresence();loadAiChats();
@@ -534,7 +538,8 @@ async function loadEco(){
   if(Eco.canClaim())toast('Your daily reward is ready','flame');
 }
 function subscribe(){
-  S.rt=S.sb.channel('fiji-rt-'+me())
+  try{S.rt&&S.sb.removeChannel(S.rt)}catch{}
+  S.rt=S.sb.channel('fiji-rt-'+me()+'-'+uid())
    .on('postgres_changes',{event:'*',schema:'public',table:'messages'},onMsg)
    .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},pl=>{const n=pl.new;if(n?.id){const o=S.profiles.get(n.id)||{};S.profiles.set(n.id,n);if(n.id===me())S.profile=n;const same=JSON.stringify({...o,last_seen:0})===JSON.stringify({...n,last_seen:0});if(!same)liveRefresh();else{const x=presSnap();if(x!==S.snap){S.snap=x;liveRefresh()}}}})
    .on('postgres_changes',{event:'*',schema:'public',table:'roles'},async()=>{S.roles=(await S.sb.from('roles').select('*')).data||[];liveRefresh()})
