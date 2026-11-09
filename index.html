@@ -1551,4 +1551,308 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-ephx]');if
 })();
 </script>
 </body>
+   <!-- FIJI COMBINED PATCH: paste this whole file right before </body> in index.html (after the main <script>).
+     It REPLACES the old patch block. Contains: backgrounds, friends, VM tab, + onboarding stepper, compact layout, Customize Fiji modal. -->
+<style>
+/* backgrounds */
+#cb{display:none!important}
+#fbgw{position:absolute;inset:0;z-index:0;pointer-events:none}
+#fbgw canvas{width:100%;height:100%;display:block;opacity:.85}
+#fbgw::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 48%,rgba(0,0,0,.6),rgba(0,0,0,.15) 65%,transparent 90%)}
+
+/* shop / chat / settings / admin / history / AI: see-through, glassy */
+.view:has(>.pg),.view:has(>.chat),.view:has(>.shop),.view:has(>.aiwrap),.view:has(>.pgbody){background:transparent}
+.chat,.pg,.aiwrap.page{background:transparent!important}
+.pgnav,.cside,.cmem,.aiside,.cmain,.pgbody,.aimain{background:rgba(6,6,8,.5)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.pgbody{margin:14px;border-radius:14px;border:1px solid rgba(255,255,255,.07)}
+.card,.icard,.pk,.scard,.pcard,.cself,.chead,.ccomp textarea{background:rgba(12,12,14,.6)!important;border-color:rgba(255,255,255,.09)!important}
+.card,.icard,.pk,.scard{backdrop-filter:blur(10px)}
+.pgnav button.on,.ci.on,.seg button.on{background:rgba(255,92,122,.16);color:var(--hib)}
+.btn{background:linear-gradient(135deg,var(--hib),var(--hib2));color:#fff}.btn.ghost{background:rgba(255,255,255,.08);color:var(--text)}.btn.red{background:#d64545}
+.savebar{background:#0a0a0c;border:1px solid rgba(255,92,122,.4)}
+
+/* smaller, simpler icons */
+.pk{--pc:#ff5c7a!important}
+.pk .pic{width:46px;height:46px;border-radius:14px}.pk .pic iconify-icon{width:24px!important;height:24px!important}
+.packbox{width:80px;height:80px;border-radius:22px}.packbox iconify-icon{width:40px!important;height:40px!important}
+.flame{width:40px;height:40px}.flame iconify-icon{width:20px!important;height:20px!important}
+.icard .vis iconify-icon{width:28px!important;height:28px!important}
+.rvcard .vis iconify-icon{width:40px!important;height:40px!important}
+.nt h1 svg{width:54px;height:54px}.nt h1{font-size:96px}
+
+/* mobile: search bar + buttons at the bottom */
+@media(max-width:699px){
+ #app{display:flex;flex-direction:column}
+ #tabstrip{order:1}#main{order:2;flex:1}#bmbar{order:3}
+ #toolbar{order:4;flex-wrap:wrap;padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-top:1px solid var(--line);border-bottom:0}
+ #omniw{order:-1;flex:1 0 100%;max-width:none;margin:0 0 4px}
+ #toolbar>.ib,#toolbar>.chipbtn{flex:1}
+ #osug{top:auto;bottom:44px}
+ #bmbar{overflow-x:auto;flex-direction:row;border-top:1px solid var(--line)}
+ .pgbody{margin:6px}
+}
+</style>
+<script>
+(function(){
+/* ---------- VM tab (embeds /vm/index.html) ---------- */
+FAVS.push(['vm','VM','monitor','internal']);INTERNAL.vm=['VM','monitor'];renderBm();
+
+/* ---------- background manager (saved on the account via S.settings.bg) ---------- */
+const HEAD='precision mediump float;uniform vec2 R;uniform float T;uniform vec2 M;uniform vec3 c0,c1,c2,c3;'+
+ 'vec3 pal(float t){t=clamp(t,0.,1.);return t<.33?mix(c0,c1,t*3.):t<.66?mix(c1,c2,(t-.33)*3.):mix(c2,c3,(t-.66)*3.);}'+
+ 'float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}';
+const FS={
+ bends:'void main(){vec2 p=(gl_FragCoord.xy*2.-R)/R.y;p+=(M-.5)*.3;for(float i=1.;i<5.;i++){p+=.5/i*vec2(sin(p.y*i*1.3+T*.3+i),cos(p.x*i*1.1-T*.25));}gl_FragColor=vec4(pal(.5+.5*sin(p.x*1.4+p.y+T*.2))*.85,1.);}',
+ blinds:'void main(){vec2 u=gl_FragCoord.xy/R;float n=18.,s=fract(u.x*n),id=floor(u.x*n);float tilt=.5+.5*sin(T*.5+id*.5);float d=length((u-M)*vec2(R.x/R.y,1.));float r=pow(s,1.+tilt*2.);vec3 c=pal(fract(u.x+T*.03))*(r*.8+exp(-d*d*6.)*.5);gl_FragColor=vec4(c*smoothstep(0.,.06,min(s,1.-s)+.02),1.);}',
+ grain:'void main(){vec2 u=gl_FragCoord.xy/R;vec2 q=u+.1*vec2(sin(u.y*3.+T*.2),cos(u.x*3.-T*.15));float v=smoothstep(0.,1.,.5+.5*sin(q.x*3.+q.y*2.+T*.15+M.x));vec3 c=pal(v)*.8+(h(gl_FragCoord.xy+floor(T*24.))-.5)*.12;gl_FragColor=vec4(c,1.);}'
+};
+const NAMES={bends:'Flow',blinds:'Blinds',grain:'Grainient'};
+const PAL=['#ff3d6e','#ff8a3d','#db5844','#b0124f'];
+const hx=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+const BG={cur:null,tok:0,mouse:[.5,.5],NAMES,
+ set(id){if(!FS[id])id='bends';if(id===this.cur&&$('#fbgw'))return;this.cur=id;const tok=++this.tok;
+  $('#fbgw')?.remove();const w=document.createElement('div');w.id='fbgw';const cv=document.createElement('canvas');w.append(cv);$('#main').prepend(w);
+  const gl=cv.getContext('webgl');if(!gl)return;
+  const sh=(t,s)=>{const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);return x};
+  const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,HEAD+FS[id]));gl.linkProgram(pr);gl.useProgram(pr);
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);const a=gl.getAttribLocation(pr,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+  const U=n=>gl.getUniformLocation(pr,n);PAL.forEach((c,i)=>gl.uniform3fv(U('c'+i),hx(c)));
+  const t0=performance.now();let cur=[.5,.5];
+  (function loop(){if(tok!==BG.tok)return;requestAnimationFrame(loop);
+   if(document.hidden||document.querySelector('.view.on.fr'))return; // pause while a website/game/VM is showing
+   const W=Math.max(1,w.clientWidth*.6|0),H=Math.max(1,w.clientHeight*.6|0);if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+   gl.viewport(0,0,W,H);cur=cur.map((v,i)=>v+(BG.mouse[i]-v)*.06);
+   gl.uniform2f(U('R'),W,H);gl.uniform1f(U('T'),(performance.now()-t0)/1000);gl.uniform2f(U('M'),cur[0],cur[1]);gl.drawArrays(gl.TRIANGLES,0,3)})()}};
+addEventListener('pointermove',e=>{BG.mouse=[e.clientX/innerWidth,1-e.clientY/innerHeight]},{passive:true});
+window.FijiBG=BG;
+// load-time + account sync: applyTheme runs after login merges account settings
+const _at=applyTheme;applyTheme=function(){_at();BG.set(S.settings.bg)};
+BG.set((lsGet('fiji.settings',{})||{}).bg);
+// picker inside Settings > Theme
+const _pt=Settings.p_theme;Settings.p_theme=function(b){_pt.call(this,b);
+ b.insertAdjacentHTML('beforeend',`<div class="card" style="margin-top:16px"><label class="f" style="margin-top:0">Background animation</label><p class="mut" style="margin:0 0 10px">Saved to your account. It stays until you change it.</p><div class="sws" style="gap:10px">${Object.entries(NAMES).map(([k,n])=>`<button class="btn ${S.settings.bg===k||(!S.settings.bg&&k==='bends')?'':'ghost'}" data-bg="${k}">${n}</button>`).join('')}</div></div>`);
+ $$('[data-bg]',b).forEach(x=>x.onclick=()=>{S.settings.bg=x.dataset.bg;saveSettings();this.render()})};
+
+/* ---------- friends (required for DMs) ---------- */
+const F=window.Friends={list:[],
+ async load(){if(!S.user)return;const {data}=await S.sb.from('friendships').select('*');this.list=data||[]},
+ st(id){const r=this.list.find(f=>(f.a===me()&&f.b===id)||(f.a===id&&f.b===me()));return!r?'none':r.status==='accepted'?'friend':r.a===me()?'sent':'incoming'},
+ async add(id){const s=this.st(id);if(s==='incoming')await S.sb.from('friendships').update({status:'accepted'}).eq('a',id).eq('b',me());
+  else if(s==='none'){const {error}=await S.sb.from('friendships').insert({a:me(),b:id});if(error)return toast(error.message);toast('Friend request sent','user-plus')}
+  await this.load()},
+ async remove(id){await S.sb.from('friendships').delete().or(`and(a.eq.${me()},b.eq.${id}),and(a.eq.${id},b.eq.${me()})`);await this.load()},
+ modal(){const m=Ui.modal('');const draw=()=>{const ids=k=>this.list.filter(f=>k(f)).map(f=>f.a===me()?f.b:f.a);
+  const inc=ids(f=>f.status==='pending'&&f.b===me()),fr=ids(f=>f.status==='accepted'),out=ids(f=>f.status==='pending'&&f.a===me());
+  const row=(id,btns)=>`<div class="row">${av(S.profiles.get(id),32,false)}<div class="grow"><b>${nameHtml(S.profiles.get(id))}</b></div>${btns}</div>`;
+  m.firstChild.innerHTML=`<h2>${ic('users',20)} Friends</h2><label class="f">Requests (${inc.length})</label>${inc.map(i=>row(i,`<button class="btn sm" data-a="${i}">Accept</button><button class="btn sm ghost" data-r="${i}">Decline</button>`)).join('')||'<p class="mut">None</p>'}
+  <label class="f">Friends (${fr.length})</label>${fr.map(i=>row(i,`<button class="btn sm" data-m="${i}">Message</button><button class="btn sm ghost" data-r="${i}">Remove</button>`)).join('')||'<p class="mut">Right-click a member and pick Add friend.</p>'}
+  ${out.length?`<label class="f">Sent</label>${out.map(i=>row(i,`<button class="btn sm ghost" data-r="${i}">Cancel</button>`)).join('')}`:''}`;
+  $$('[data-a]',m).forEach(b=>b.onclick=async()=>{await this.add(b.dataset.a);draw()});$$('[data-r]',m).forEach(b=>b.onclick=async()=>{await this.remove(b.dataset.r);draw()});$$('[data-m]',m).forEach(b=>b.onclick=()=>{m.close();openNative('chat');Chat.dm(b.dataset.m)})};draw()}};
+const _dm=Chat.dm;Chat.dm=function(id){if(F.st(id)!=='friend'){toast('You can only DM friends. Send a request first.','user-plus');return}return _dm.call(this,id)};
+const _um=userMenu;userMenu=function(p){const r=_um(p);if(!p||!S.user||p.id===me()||p.is_bot)return r;const s=F.st(p.id);
+ r.splice(1,0,{label:{friend:'Friends ✓',sent:'Request sent',incoming:'Accept friend request',none:'Add friend'}[s],icon:'user-plus',disabled:s==='friend'||s==='sent',fn:()=>F.add(p.id)});return r};
+const _le=loadEco;loadEco=async function(){await _le();await F.load();const n=F.list.filter(f=>f.status==='pending'&&f.b===me()).length;if(n)toast(n+' friend request'+(n>1?'s':'')+' — type /friends','user-plus')};
+CMDS.push({n:'friends',d:'Friend requests and friends list',cat:'General',na:1,run:()=>F.modal()});
+})();
+</script>
+
+<!-- ================= ONBOARDING + COMPACT LAYOUT + CUSTOMIZE FIJI ================= -->
+<style>
+/* ---- compact layout ---- */
+body[data-layout=compact] #toolbar{padding:2px 6px;gap:2px}
+body[data-layout=compact] #toolbar .ib{width:28px;height:28px}
+body[data-layout=compact] #omni{height:28px}
+body[data-layout=compact] .chipbtn{height:26px;font-size:12px;padding:0 9px}
+body[data-layout=compact] .bm{padding:5px 10px;font-size:12.5px}
+body[data-layout=compact] .tab .tt{font-size:12px}
+@media(min-width:700px){
+ body[data-layout=compact] #app{grid-template-columns:190px minmax(0,1fr)}
+ body[data-layout=compact] #tabstrip{padding:10px 8px 6px}
+ body[data-layout=compact] #bmbar{padding:6px 8px 10px}
+ body[data-layout=compact] .tab{height:30px;padding:0 6px 0 9px}
+ body[data-layout=compact] #newtab{width:34px;height:34px;margin-bottom:8px}
+ body[data-layout=compact] .bm{padding:5px 9px}
+}
+@media(max-width:699px){body[data-layout=compact] #toolbar{padding:3px 4px calc(3px + env(safe-area-inset-bottom))}}
+
+/* ---- stepper (vanilla port) ---- */
+.onbbg{position:fixed;inset:0;z-index:115;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:fade .2s}
+.onbbg.out{opacity:0;transition:opacity .25s}
+.stepper{--stepper-pad:0px;--stepper-inset:0px;--stepper-bleed:8px;--stepper-well-radius:max(6px,calc(var(--stepper-radius) - 8px));--stepper-tile-radius:max(4px,calc(var(--stepper-well-radius) - 4px));position:relative;display:flex;flex-direction:column;width:min(100%,var(--stepper-width));min-width:0;max-width:100%;box-sizing:border-box;border-radius:var(--stepper-radius);color:var(--stepper-ink);-webkit-tap-highlight-color:transparent}
+.stepper--framed{--stepper-pad:8px;--stepper-inset:12px;--stepper-bleed:20px;padding:var(--stepper-pad);background:var(--stepper-frame);box-shadow:var(--stepper-frame-shadow);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6)}
+.stepper__rim{position:absolute;inset:0;z-index:2;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--stepper-frame-edge),inset 0 1px 0 var(--stepper-frame-highlight);pointer-events:none}
+.stepper__track{position:relative;display:flex;gap:4px;padding:4px;border-radius:var(--stepper-well-radius);background:var(--stepper-well)}
+.stepper__glider{position:absolute;top:0;left:0;border-radius:var(--stepper-tile-radius);background:var(--stepper-tile);box-shadow:inset 0 0 0 1px var(--stepper-tile-edge),inset 0 1px 0 var(--stepper-tile-highlight),var(--stepper-tile-shadow);opacity:0;pointer-events:none}
+.stepper__segment{position:relative;display:flex;flex:1 1 auto;align-items:center;justify-content:center;gap:8px;min-width:0;height:40px;padding:0 10px;box-sizing:border-box;border:none;border-radius:var(--stepper-tile-radius);background:none;color:var(--stepper-muted);font-family:inherit;cursor:pointer;transition:background-color .2s ease}
+.stepper__segment:disabled{cursor:default}
+.stepper__badge{display:grid;flex:none;place-items:center;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--stepper-faint);color:var(--stepper-muted);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;transition:background-color .15s,box-shadow .15s,color .15s}
+.stepper__badge[data-status=active]{box-shadow:inset 0 0 0 1.5px var(--stepper-ink);color:var(--stepper-ink)}
+.stepper__badge[data-status=complete]{background:var(--stepper-solid);box-shadow:none;color:var(--stepper-solid-ink)}
+.stepper__text{display:flex;flex-direction:column;min-width:0;text-align:left}
+.stepper__title{overflow:hidden;font-size:13px;font-weight:600;line-height:1.2;color:var(--stepper-muted);text-overflow:ellipsis;white-space:nowrap;transition:color .2s}
+.stepper__title:not([data-status=upcoming]){color:var(--stepper-ink)}
+.stepper__body{display:flex;flex-direction:column;min-width:0;padding:20px var(--stepper-inset) var(--stepper-inset)}
+.stepper__viewport{position:relative;margin:-6px calc(var(--stepper-bleed)*-1);overflow:hidden}
+.stepper__pane{box-sizing:border-box;padding:6px var(--stepper-bleed);outline:none}
+.stepper__pane--leaving{position:absolute;top:0;right:0;left:0;pointer-events:none}
+.stepper__step{min-width:0}
+.stepper__footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:20px}
+.stepper__button{display:inline-flex;flex:none;align-items:center;gap:6px;height:38px;padding:0 14px;border:none;border-radius:12px;font-family:inherit;font-size:13.5px;font-weight:600;line-height:1;cursor:pointer;transition:filter .2s,transform .2s,opacity .2s}
+.stepper__button--back{padding-left:10px;background:var(--stepper-tile);box-shadow:inset 0 0 0 1px var(--stepper-tile-edge),inset 0 1px 0 var(--stepper-tile-highlight),var(--stepper-tile-shadow);color:var(--stepper-ink)}
+.stepper__button--back[data-hidden]{visibility:hidden;opacity:0}
+.stepper__button--next{margin-left:auto;padding-right:11px;background:var(--stepper-solid);box-shadow:0 4px 12px -6px rgba(0,0,0,.5);color:var(--stepper-solid-ink)}
+.stepper__button:focus-visible,.stepper__segment:focus-visible{outline:2px solid var(--stepper-ink);outline-offset:2px}
+@media(hover:hover){.stepper__segment:not(:disabled):hover{background:var(--stepper-hover-fill)}.stepper__button--back:hover{filter:var(--stepper-hover)}.stepper__button--next:hover{filter:var(--stepper-solid-hover)}}
+.stepper__button:active{filter:var(--stepper-press);transform:scale(.96);transition-duration:0s}
+@media(max-width:520px){.stepper__segment[data-status=upcoming] .stepper__text,.stepper__segment[data-status=complete] .stepper__text{display:none}}
+
+/* ---- onboarding content ---- */
+.onb-h{margin:0 0 4px;font-size:17px;color:var(--stepper-ink,var(--text))}
+.onb-p{margin:0;color:var(--stepper-muted,var(--mut));font-size:13px;line-height:1.45}.onb-p.sm{font-size:12px;margin-top:8px}
+.onb-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.onb-bgs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.onb-opt{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;padding:10px;border-radius:14px;background:var(--stepper-well,var(--surf2));box-shadow:inset 0 0 0 1px var(--stepper-tile-edge,var(--line));color:var(--stepper-ink,var(--text));transition:box-shadow .2s,background .2s,transform .15s}
+.onb-opt:active{transform:scale(.97)}
+.onb-opt small{color:var(--stepper-muted,var(--mut));font-size:11.5px;line-height:1.3}
+.onb-opt.on{box-shadow:inset 0 0 0 2px #ff5c7a;background:rgba(255,92,122,.12)}
+.onb-mini{display:flex;gap:4px;width:100%;height:54px;padding:5px;border-radius:8px;background:#050506}
+.onb-mini i{flex:0 0 34%;border-radius:4px;background:rgba(255,92,122,.5)}.onb-mini.c i{flex-basis:15%}
+.onb-mini b{flex:1;border-radius:4px;background:rgba(255,255,255,.1)}
+.onb-bg{align-items:stretch;gap:8px}.onb-sw{height:54px;border-radius:9px;display:block}
+.onb-row{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:var(--stepper-well);margin:12px 0 0}
+.onb-row>div:first-child{flex:1;min-width:0}.onb-row small{display:block;color:var(--stepper-muted);font-size:12px}
+.onb-scroll{max-height:190px;overflow:auto;padding:10px 14px;border-radius:12px;background:var(--stepper-well);margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--stepper-ink)}
+.onb-scroll ol{margin:0;padding-left:18px}.onb-scroll li{margin:0 0 9px}.onb-scroll li span{display:block;color:var(--stepper-muted);font-size:12px}
+</style>
+<script>
+(function(){
+'use strict';
+/* ---------- body layout attribute (normal | compact), synced with account settings ---------- */
+const _at2=applyTheme;applyTheme=function(){_at2();document.body.dataset.layout=S.settings.compact?'compact':'normal'};
+document.body.dataset.layout=S.settings.compact?'compact':'normal';
+
+/* ---------- vanilla port of the React Stepper ---------- */
+const SPR='linear(0, 0.0603, 0.2033, 0.3821, 0.5633, 0.7258, 0.8584, 0.9574, 1.0242, 1.0634, 1.0809, 1.0828, 1.0747, 1.0613, 1.046, 1.0313, 1.0186, 1.0085, 1.0012, 0.9965, 0.994, 0.9931, 0.9933, 0.9941, 0.9953, 0.9966, 0.9978, 0.9988, 1)';
+const SETTLE='cubic-bezier(0.22, 1, 0.36, 1)';
+const EASE=(window.CSS&&CSS.supports&&CSS.supports('transition-timing-function','linear(0, 1)'))?SPR:'cubic-bezier(0.34, 1.4, 0.64, 1)';
+const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+const STH={'--stepper-frame':'rgba(38, 35, 46, 0.78)','--stepper-frame-edge':'rgba(255, 255, 255, 0.08)','--stepper-frame-highlight':'rgba(255, 255, 255, 0.07)','--stepper-frame-shadow':'0 22px 44px -20px rgba(0, 0, 0, 0.8), 0 6px 16px -8px rgba(0, 0, 0, 0.5)','--stepper-tile':'linear-gradient(180deg, #3a3644 0%, #27242f 100%)','--stepper-tile-edge':'rgba(255, 255, 255, 0.07)','--stepper-tile-highlight':'rgba(255, 255, 255, 0.12)','--stepper-tile-shadow':'0 4px 10px -4px rgba(0, 0, 0, 0.7)','--stepper-well':'rgba(255, 255, 255, 0.07)','--stepper-ink':'#f4f4f5','--stepper-muted':'rgba(244, 244, 245, 0.55)','--stepper-faint':'rgba(255, 255, 255, 0.22)','--stepper-hover':'brightness(1.12)','--stepper-hover-fill':'rgba(255, 255, 255, 0.04)','--stepper-solid-hover':'brightness(0.9)','--stepper-press':'brightness(0.85)'};
+
+function mkStepper(steps,{onDone,agree='I agree',next='Continue',back='Back'}){
+  const total=steps.length;let cur=1,reached=1;
+  const el=document.createElement('div');el.className='stepper stepper--framed';
+  Object.entries(STH).forEach(([k,v])=>el.style.setProperty(k,v));
+  el.style.setProperty('--stepper-solid','#ff5c7a');el.style.setProperty('--stepper-solid-ink','#fff');
+  el.style.setProperty('--stepper-radius','24px');el.style.setProperty('--stepper-width','480px');
+  el.innerHTML=`<div class="stepper__header"><div class="stepper__track"><span class="stepper__glider" aria-hidden="true"></span>${steps.map((s,i)=>`<button type="button" class="stepper__segment" data-n="${i+1}"><span class="stepper__badge"></span><span class="stepper__text"><span class="stepper__title">${esc(s.title)}</span></span></button>`).join('')}</div></div>
+   <div class="stepper__body"><div class="stepper__viewport" aria-live="polite"></div><div class="stepper__footer-wrap"><div class="stepper__footer"><button type="button" class="stepper__button stepper__button--back">${ic('chevron-left',16)}<span>${esc(back)}</span></button><button type="button" class="stepper__button stepper__button--next"></button></div></div></div><span class="stepper__rim" aria-hidden="true"></span>`;
+  const q=s=>el.querySelector(s);
+  const track=q('.stepper__track'),glider=q('.stepper__glider'),vp=q('.stepper__viewport'),segs=[...el.querySelectorAll('.stepper__segment')],bk=q('.stepper__button--back'),nx=q('.stepper__button--next');
+  const status=n=>n<cur?'complete':n===cur?'active':'upcoming';
+  function header(){segs.forEach((s,i)=>{const n=i+1,st=status(n);s.dataset.status=st;const b=s.querySelector('.stepper__badge');b.dataset.status=st;b.innerHTML=st==='complete'?ic('check',14):n;s.querySelector('.stepper__title').dataset.status=st;s.disabled=n===cur||n>reached;s.setAttribute('aria-current',n===cur?'step':'false')})}
+  function footer(){bk.toggleAttribute('data-hidden',cur<=1);bk.tabIndex=cur<=1?-1:0;const last=cur===total;nx.innerHTML=`<span>${esc(last?agree:next)}</span>${ic(last?'check':'chevron-right',16)}`}
+  function place(animate){const s=segs[cur-1];if(!s||!s.offsetWidth)return;glider.style.transition=animate?`transform 560ms ${EASE}, width 560ms ${EASE}, height 560ms ${EASE}, opacity 200ms ease`:'opacity 200ms ease';glider.style.transform=`translate3d(${s.offsetLeft}px,${s.offsetTop}px,0)`;glider.style.width=s.offsetWidth+'px';glider.style.height=s.offsetHeight+'px';glider.style.opacity='1'}
+  function go(n,first){
+    if(n>total){onDone();return}
+    n=Math.max(1,n);if(!first&&n===cur)return;
+    vp.querySelectorAll('.stepper__pane--leaving').forEach(x=>x.remove());
+    const dir=n>=cur?1:-1,old=first?null:vp.querySelector('.stepper__pane'),from=vp.offsetHeight;
+    cur=n;reached=Math.max(reached,n);
+    const pane=document.createElement('div');pane.className='stepper__pane';pane.tabIndex=-1;
+    const st=document.createElement('div');st.className='stepper__step';steps[n-1].render(st);pane.append(st);
+    if(old){old.classList.add('stepper__pane--leaving');old.setAttribute('aria-hidden','true')}
+    vp.append(pane);header();footer();place(!first&&!reduced());
+    if(first)return;
+    const to=vp.offsetHeight,rd=reduced(),sh=rd?0:36;
+    if(Math.abs(from-to)>.5)vp.animate([{height:from+'px'},{height:to+'px'}],{duration:rd?200:560,easing:rd?SETTLE:EASE});
+    if(sh)pane.animate([{transform:`translateX(${dir*sh}px)`},{transform:'none'}],{duration:560,easing:EASE});
+    pane.animate([{opacity:0},{opacity:0,offset:.25},{opacity:1}],{duration:420,easing:'ease-out'});
+    if(old){old.animate([{opacity:1},{opacity:0}],{duration:140,easing:'cubic-bezier(0.2, 0, 0.4, 1)',fill:'forwards'});
+      const ex=old.animate([{transform:'none'},{transform:`translateX(${-dir*sh}px)`}],{duration:200,easing:'cubic-bezier(0.4, 0, 1, 1)',fill:'forwards'});ex.onfinish=()=>old.remove()}
+    pane.focus({preventScroll:true});
+  }
+  segs.forEach((s,i)=>s.onclick=()=>{if(i+1<=reached)go(i+1)});
+  bk.onclick=()=>go(cur-1);nx.onclick=()=>go(cur+1);
+  new ResizeObserver(()=>place(false)).observe(track);
+  return{el,start(){go(1,true)}};
+}
+
+/* ---------- shared bits ---------- */
+const SW={bends:'linear-gradient(135deg,#ff3d6e,#b0124f 55%,#ff8a3d)',blinds:'repeating-linear-gradient(90deg,#ff3d6e 0 7px,#b0124f 7px 11px,#ff8a3d 11px 18px)',grain:'radial-gradient(circle at 30% 30%,#ff8a3d,transparent 55%),radial-gradient(circle at 75% 70%,#ff3d6e,#b0124f)'};
+const bgHtml=()=>{const cur=FijiBG.NAMES[S.settings.bg]?S.settings.bg:'bends';return Object.entries(FijiBG.NAMES).map(([k,n])=>`<button type="button" class="onb-opt onb-bg ${k===cur?'on':''}" data-bg="${k}"><span class="onb-sw" style="background:${SW[k]}"></span><strong>${n}</strong></button>`).join('')};
+const bgBind=(root,cb)=>root.querySelectorAll('[data-bg]').forEach(b=>b.onclick=()=>{root.querySelectorAll('[data-bg]').forEach(x=>x.classList.toggle('on',x===b));cb(b.dataset.bg)});
+const applyLayout=()=>{document.body.dataset.layout=S.settings.compact?'compact':'normal'};
+const PEND='fiji.onb.pending';
+
+const RULES=[
+ ['You must be 18 or older.','Fiji is an adults-only community. If you are under 18, please leave.'],
+ ['No NSFW content.','No sexual, graphic, or explicit material in chat, profiles, usernames, tags, or embeds.'],
+ ['Keep it safe for everyone.','Chat should be fine for any user and any age to read. No gore, no shock content.'],
+ ['Be decent to people.','No harassment, hate speech, threats, or targeting anyone. Disagree without being cruel.'],
+ ['No spam or scams.','No flooding, mass pings without a reason, phishing, or trying to trick people out of coins or items.'],
+ ['Do not misuse permissions.','If you were trusted with staff powers, use them for the community and never for personal gain or drama.'],
+ ['Do not exploit bugs.','Found a glitch in coins, packs, trades, or anything else? Report it to staff. Abusing it can get you banned.'],
+ ['Staff can act.','Warnings, bans (including device and IP bans), and removals are at staff discretion.']
+];
+
+/* ---------- onboarding ---------- */
+const OB={el:null,
+steps(){return[
+ {title:'Layout',render:h=>{
+  h.innerHTML=`<h3 class="onb-h">Choose your layout</h3><p class="onb-p">Pick how Fiji's tabs and toolbar are sized.</p><div class="onb-opts">${[[false,'Normal','Roomy sidebar, comfortable spacing'],[true,'Compact','Slimmer sidebar, tighter controls']].map(([c,n,d])=>`<button type="button" class="onb-opt ${!!S.settings.compact===c?'on':''}" data-c="${c}"><div class="onb-mini ${c?'c':''}"><i></i><b></b></div><strong>${n}</strong><small>${d}</small></button>`).join('')}</div><p class="onb-p sm">You can change this later with <b>Customize Fiji</b> on the new tab page.</p>`;
+  h.querySelectorAll('.onb-opt').forEach(b=>b.onclick=()=>{S.settings.compact=b.dataset.c==='true';applyLayout();h.querySelectorAll('.onb-opt').forEach(x=>x.classList.toggle('on',x===b))})}},
+ {title:'Theme',render:h=>{
+  h.innerHTML=`<h3 class="onb-h">Pick a background</h3><p class="onb-p">Shown behind the new tab page and every Fiji screen. It applies right away.</p><div class="onb-bgs">${bgHtml()}</div><p class="onb-p sm">Also changeable later in Customize Fiji.</p>`;
+  bgBind(h,k=>{S.settings.bg=k;FijiBG.set(k)})}},
+ {title:'Alerts',render:h=>{
+  const note=()=>{const n=h.querySelector('#onbNs');if(!('Notification' in window))n.textContent="This browser doesn't support desktop notifications, so you'll only see alerts inside Fiji.";
+   else if(!S.settings.notif)n.textContent="Off. You'll only see alerts while Fiji is open in front of you.";
+   else if(Notification.permission==='denied')n.textContent='On here, but your browser is blocking notifications, so nothing will show until you allow them in site settings.';
+   else n.textContent='On. Your browser may ask for permission.'};
+  h.innerHTML=`<h3 class="onb-h">Notifications</h3><p class="onb-p">Get alerted about DMs, pings and friend requests.</p><div class="onb-row"><div><b>Desktop notifications</b><small>You can fine-tune these in Settings later</small></div><div class="sw ${S.settings.notif?'on':''}" id="onbSw"></div></div><p class="onb-p sm" id="onbNs"></p>`;note();
+  const sw=h.querySelector('#onbSw');sw.onclick=async()=>{S.settings.notif=!S.settings.notif;sw.classList.toggle('on',S.settings.notif);if(S.settings.notif)await askNotif();note()}}},
+ {title:'Rules',render:h=>{
+  h.innerHTML=`<h3 class="onb-h">Chat &amp; usage rules</h3><p class="onb-p">Short version: be an adult, keep it clean. Scroll to read them all.</p><div class="onb-scroll" tabindex="0"><ol>${RULES.map(([t,d])=>`<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('')}</ol></div><p class="onb-p sm">Tapping <b>I agree</b> means you accept these rules. This only shows once.</p>`}}
+]},
+open(){if(this.el)return;
+  const bg=document.createElement('div');bg.className='onbbg';
+  const st=mkStepper(this.steps(),{agree:'I agree',onDone:()=>this.finish()});
+  bg.append(st.el);$('#layer').append(bg);this.el=bg;st.start()},
+finish(){
+  S.settings.onboarded=true;saveSettings();patchMe({settings:{...S.settings}});
+  try{localStorage.removeItem(PEND)}catch{}
+  const bg=this.el;this.el=null;bg.classList.add('out');setTimeout(()=>bg.remove(),260);
+  toast('You\'re all set. Welcome to Fiji.','sparkles')}};
+window.FijiOnboarding=OB;
+
+/* ---------- when does it show? only for brand-new accounts, only once ---------- */
+(function hookSignUp(){if(!S.sb)return setTimeout(hookSignUp,200);
+  const auth=S.sb.auth,orig=auth.signUp.bind(auth);
+  auth.signUp=async(...a)=>{const r=await orig(...a);if(!r.error&&r.data?.user)lsSet(PEND,r.data.user.id);return r}})();
+setInterval(()=>{
+  if(OB.el||!S.user||!S.profile||S.ban||S.loggingIn)return;
+  const ps=S.profile.settings||{};
+  if(ps.onboarded){if(localStorage.getItem(PEND))localStorage.removeItem(PEND);return}
+  const prov=S.user.app_metadata?.provider;
+  if(prov&&prov!=='email'&&!ps.setup)lsSet(PEND,S.user.id); // new Google/GitHub account
+  if(lsGet(PEND,null)!==me())return;
+  if($('.modalbg'))return; // wait for username picker / warnings
+  OB.open()},1500);
+
+/* ---------- Customize Fiji (new tab button) ---------- */
+function customize(){
+  const m=Ui.modal(`<h2>${ic('palette',22)} Customize Fiji</h2><label class="f">Layout</label><div id="cuLay"></div><label class="f">Background</label><div class="onb-bgs" id="cuBg">${bgHtml()}</div><div class="mbtns"><button class="btn ghost" id="cuMore">More theme options</button><button class="btn" id="cuOk">Done</button></div>`,{cls:'sm'});
+  mkSeg($('#cuLay',m),{options:[['normal','Normal'],['compact','Compact']],value:S.settings.compact?'compact':'normal',onChange:k=>{S.settings.compact=k==='compact';saveSettings()}});
+  bgBind($('#cuBg',m),k=>{S.settings.bg=k;saveSettings()});
+  $('#cuOk',m).onclick=()=>m.close();$('#cuMore',m).onclick=()=>{m.close();navigate(curTab(),'fiji://settings/theme')}}
+const bindCustom=root=>$$('[data-o="settings/theme"]',root).forEach(b=>b.onclick=customize);
+const _nt=NewTab;NewTab=function(v){_nt(v);bindCustom(v)};
+bindCustom(document); // the tab created during boot already exists
+
+/* layout switch inside Settings > Theme too */
+const _pt2=Settings.p_theme;Settings.p_theme=function(b){_pt2.call(this,b);
+  b.insertAdjacentHTML('beforeend',`<div class="card" style="margin-top:16px"><label class="f" style="margin-top:0">Layout</label><div id="stLay"></div></div>`);
+  mkSeg($('#stLay',b),{options:[['normal','Normal'],['compact','Compact']],value:S.settings.compact?'compact':'normal',onChange:k=>{S.settings.compact=k==='compact';saveSettings()}})};
+})();
+</script>
 </html>
