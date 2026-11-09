@@ -662,9 +662,9 @@ body.embedded .shell{
           <circle cx="32" cy="32" r="4" fill="#fff"/>
         </svg>
       </div>
-      <div class="eyebrow">Hyperbeam inside</div>
-      <h1>Fiji VM</h1>
-      <p class="lede">A full Chromium browser, streamed live from Hyperbeam into Fiji. Type an address and go anywhere without leaving the tab.</p>
+      <div class="eyebrow">chromium</div>
+      <h1>fiji vm</h1>
+      <p class="lede">a full vm – just for you <3</p>
 
       <form class="launch" id="startForm">
         <label class="url-wrap">
@@ -693,15 +693,6 @@ body.embedded .shell{
         </button>
       </div>
 
-      <div class="notice" id="keyNotice" hidden>
-        <iconify-icon icon="lucide:key-round" width="17"></iconify-icon>
-        <div>
-          <b>Add your Hyperbeam key</b>
-          <span>Set <code>HYPERBEAM_API</code> at the top of <code>vm/index.html</code>.</span>
-          <button type="button" class="link-btn" id="keyHelpBtn">Setup &amp; help</button>
-        </div>
-      </div>
-
       <div class="meta">
         <span><iconify-icon icon="lucide:monitor" width="13"></iconify-icon> 1280 × 720</span>
         <span><iconify-icon icon="lucide:scan-text" width="13"></iconify-icon> Sharp text</span>
@@ -728,11 +719,11 @@ body.embedded .shell{
           <circle cx="32" cy="32" r="4" fill="#fff"/>
         </svg>
       </div>
-      <h2 id="loadTitle">Starting your browser…</h2>
-      <p id="loadSub">Creating a secure Hyperbeam session.</p>
+      <h2 id="loadTitle">spinning your browser...</h2>
+      <p id="loadSub">securing session...</p>
       <div class="load-bar"><i></i></div>
       <div class="load-steps" id="loadSteps"><i class="on"></i><i></i><i></i></div>
-      <button class="btn ghost" type="button" id="cancelBtn">Cancel</button>
+      <button class="btn ghost" type="button" id="cancelBtn">stop</button>
     </div>
   </section>
 
@@ -771,8 +762,8 @@ body.embedded .shell{
       <div class="stage-overlay on" id="stageOverlay">
         <div class="overlay-card">
           <span class="spinner"></span>
-          <b id="overlayTitle">Connecting to your browser…</b>
-          <small id="overlaySub">A secure stream is being set up.</small>
+          <b id="overlayTitle">establishing connection to your browser…</b>
+          <small id="overlaySub">finalizing security measures...</small>
         </div>
       </div>
     </div>
@@ -789,7 +780,7 @@ body.embedded .shell{
 <div class="dialog-bg" id="dialogBg" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
     <div class="dialog-head">
-      <h3 id="dialogTitle">Fiji VM</h3>
+      <h3 id="dialogTitle">fiji vm</h3>
       <button class="icon-btn" id="dialogClose" type="button" title="Close" aria-label="Close">
         <iconify-icon icon="lucide:x" width="17"></iconify-icon>
       </button>
@@ -805,7 +796,7 @@ body.embedded .shell{
 /* ============================================================
    HYPERBEAM CONFIG
    ============================================================ */
-const HYPERBEAM_API = "YOUR_KEY_HERE";
+const HYPERBEAM_API = "sk_live_AJ4DaJ2J-3UhJu13ywFSezd4bcpAHEMBUxTpXBndxak";
 const HYPERBEAM_PROXY = ""; // optional: "https://your-worker.example.com/create"
 
 const API_BASE = "https://engine.hyperbeam.com/v0";
