@@ -299,7 +299,20 @@ html,body{height:100dvh}
 @media(max-height:500px) and (orientation:landscape){#tabstrip{display:none}.cside{width:240px}}
 .gtag.bottag{background:var(--tc);border-color:transparent;color:#fff}.gtag.bottag iconify-icon{color:#fff}
 </style>
-<!-- Fiji theme: paste this entire block right before </head> in index.html -->
+<!-- Fiji theme: paste this entire block right before 
+<style id="fiji-newtab-fixes">
+/* New-tab shortcut proportions: balanced icon size and readable labels. */
+.nt .tiles{gap:12px;max-width:820px}
+.nt .tile{min-height:48px;padding:9px 14px;gap:10px;align-items:center}
+.nt .tile i{width:28px!important;height:28px!important;min-width:28px!important;display:grid!important;place-items:center!important;overflow:hidden}
+.nt .tile i iconify-icon,.nt .tile i svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important}
+.nt .tile i svg{display:block}
+.nt .tile span{font-size:13px!important;line-height:1.25;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+@media(max-width:699px){.nt .tile{padding:9px 12px}.nt .tile span{font-size:13px!important}}
+.onb-bg .onb-sw{min-height:54px}
+</style>
+
+</head> in index.html -->
 <style>
 /* Fiji black + hibiscus theme. Load AFTER the main <style>. */
 html[data-mode]{--frame:#000;--tool:#070708;--surf:#030304;--surf2:#0f0f11;--text:#f4efee;--mut:#8f8789;--line:#1f1c1d;--hover:rgba(255,255,255,.07);--shadow:0 8px 30px rgba(0,0,0,.85);--hib:#ff5c7a;--hib2:#ff8a3d}
@@ -1080,7 +1093,7 @@ function NewTab(v){
   v.innerHTML=`<div class="nt">${S.user?`<div class="ntstat"><button class="chipbtn ${Eco.canClaim()?'ready':''}" data-o="shop"><span class="fl">${ic('flame',15)}</span>${effStreak(p)}<span class="co">${ic('coins',15)}</span>${num(p.coins)}</button></div>`:''}<h1>${hib(70)} Fiji</h1><div class="sb">${ic('search',20)}<input placeholder="Search ${ENGINES[S.settings.engine][0]} or type a URL" autofocus></div><div class="tiles"></div><div class="ntcorner"><button class="chipbtn" data-o="settings/theme">${ic('pencil',14)} Customize Fiji</button></div></div>`;
   $('input',v).addEventListener('keydown',e=>{if(e.key==='Enter')navigate(curTab(),e.target.value)});
   $$('[data-o]',v).forEach(b=>b.onclick=()=>navigate(curTab(),'fiji://'+b.dataset.o));
-  const tl=$('.tiles',v);FAVS.filter(f=>f[0]!=='ai'||S.user).forEach(([n,l,icn,k])=>{const b=document.createElement('button');b.className='tile';b.innerHTML=`<i>${n==='ai'?hib(28):ic(icn,26)}</i><span>${l}</span>`;b.onclick=()=>openFav(n,k);tl.append(b)});
+  const tl=$('.tiles',v);FAVS.filter(f=>f[0]!=='ai'||S.user).forEach(([n,l,icn,k])=>{const b=document.createElement('button');b.className='tile';b.innerHTML=`<i>${n==='ai'?hib(20):ic(icn,20)}</i><span>${l}</span>`;b.onclick=()=>openFav(n,k);tl.append(b)});
 }
 function HistoryPage(v){
   v.innerHTML=`<div class="pgbody" style="margin:0 auto"><h2 style="display:flex;justify-content:space-between">History <button class="btn red sm" id="hc">Clear all</button></h2><div class="card" id="hl"></div></div>`;
@@ -1604,9 +1617,14 @@ const HEAD='precision mediump float;uniform vec2 R;uniform float T;uniform vec2 
 const FS={
  bends:'void main(){vec2 p=(gl_FragCoord.xy*2.-R)/R.y;p+=(M-.5)*.3;for(float i=1.;i<5.;i++){p+=.5/i*vec2(sin(p.y*i*1.3+T*.3+i),cos(p.x*i*1.1-T*.25));}gl_FragColor=vec4(pal(.5+.5*sin(p.x*1.4+p.y+T*.2))*.85,1.);}',
  blinds:'void main(){vec2 u=gl_FragCoord.xy/R;float n=18.,s=fract(u.x*n),id=floor(u.x*n);float tilt=.5+.5*sin(T*.5+id*.5);float d=length((u-M)*vec2(R.x/R.y,1.));float r=pow(s,1.+tilt*2.);vec3 c=pal(fract(u.x+T*.03))*(r*.8+exp(-d*d*6.)*.5);gl_FragColor=vec4(c*smoothstep(0.,.06,min(s,1.-s)+.02),1.);}',
- grain:'void main(){vec2 u=gl_FragCoord.xy/R;vec2 q=u+.1*vec2(sin(u.y*3.+T*.2),cos(u.x*3.-T*.15));float v=smoothstep(0.,1.,.5+.5*sin(q.x*3.+q.y*2.+T*.15+M.x));vec3 c=pal(v)*.8+(h(gl_FragCoord.xy+floor(T*24.))-.5)*.12;gl_FragColor=vec4(c,1.);}'
+ grain:'void main(){vec2 u=gl_FragCoord.xy/R;vec2 q=u+.1*vec2(sin(u.y*3.+T*.2),cos(u.x*3.-T*.15));float v=smoothstep(0.,1.,.5+.5*sin(q.x*3.+q.y*2.+T*.15+M.x));vec3 c=pal(v)*.8+(h(gl_FragCoord.xy+floor(T*24.))-.5)*.12;gl_FragColor=vec4(c,1.);}',
+ aurora:'void main(){vec2 u=(gl_FragCoord.xy*2.-R)/R.y;float a=sin(u.x*2.1+T*.22+sin(u.y*2.));float b=sin(u.x*1.25-T*.16+u.y*1.4);float v=smoothstep(-.7,.8,a*.55+b*.45-u.y*.35);vec3 c=pal(v)*smoothstep(-.9,.9,a+b*.6)*1.15;gl_FragColor=vec4(c,1.);}',
+ orbit:'void main(){vec2 u=(gl_FragCoord.xy*2.-R)/R.y;float d=length(u);float a=atan(u.y,u.x);float rings=.5+.5*cos(d*17.-T*.7+sin(a*4.+T*.2));float rays=.5+.5*cos(a*9.+T*.12);float v=clamp(rings*.72+rays*.28,0.,1.);gl_FragColor=vec4(pal(v)*(.35+.65*smoothstep(1.4,.05,d)),1.);}',
+ waves:'void main(){vec2 u=(gl_FragCoord.xy*2.-R)/R.y;float v=.5+.5*sin(u.y*5.+sin(u.x*2.2+T*.28)*1.8+T*.18);v=.5+.5*sin(v*6.+u.x*1.3-T*.12);gl_FragColor=vec4(pal(v)*.95,1.);}',
+ nebula:'void main(){vec2 u=(gl_FragCoord.xy*2.-R)/R.y;float n=sin(u.x*3.+T*.08)*cos(u.y*2.4-T*.1)+sin((u.x+u.y)*4.-T*.12)*.35;float d=length(u);float v=clamp(.5+n*.25+(1.-smoothstep(.1,1.8,d))*.2,0.,1.);gl_FragColor=vec4(pal(v)*1.1,1.);}',
+ pulse:'void main(){vec2 u=(gl_FragCoord.xy*2.-R)/R.y;float d=length(u-M*vec2(R.x/R.y,1.));float ring=.5+.5*cos(d*13.-T*1.1);float v=clamp(ring*.72+.28*sin(u.x*2.+T*.2),0.,1.);gl_FragColor=vec4(pal(v)*(.55+.45*ring),1.);}'
 };
-const NAMES={bends:'Flow',blinds:'Blinds',grain:'Grainient'};
+const NAMES={bends:'Flow',blinds:'Blinds',grain:'Grainient',aurora:'Aurora',orbit:'Orbit',waves:'Waves',nebula:'Nebula',pulse:'Pulse'};
 const PAL=['#ff3d6e','#ff8a3d','#db5844','#b0124f'];
 const hx=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 const BG={cur:null,tok:0,mouse:[.5,.5],NAMES,
