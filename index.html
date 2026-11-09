@@ -299,6 +299,176 @@ html,body{height:100dvh}
 @media(max-height:500px) and (orientation:landscape){#tabstrip{display:none}.cside{width:240px}}
 .gtag.bottag{background:var(--tc);border-color:transparent;color:#fff}.gtag.bottag iconify-icon{color:#fff}
 </style>
+<!-- Fiji theme: paste this entire block right before </head> in index.html -->
+<style>
+/* Fiji black + hibiscus theme. Load AFTER the main <style>. */
+html[data-mode]{--frame:#000;--tool:#070708;--surf:#030304;--surf2:#0f0f11;--text:#f4efee;--mut:#8f8789;--line:#1f1c1d;--hover:rgba(255,255,255,.07);--shadow:0 8px 30px rgba(0,0,0,.85);--hib:#ff5c7a;--hib2:#ff8a3d}
+html,body{background:#000}
+
+/* ---- background layer ---- */
+#main{position:relative;background:#000}
+#cb{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.8}
+#cb canvas{width:100%;height:100%;display:block}
+#cb::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 48%,rgba(0,0,0,.78),rgba(0,0,0,.25) 60%,transparent 85%)}
+#views{z-index:1}#ai{position:relative;z-index:2}
+.view:has(>.nt){background:transparent}
+.nt{background:none}
+
+/* ---- new tab ---- */
+.nt h1{font-family:'Pinyon Script','Great Vibes',cursive;font-weight:400;font-size:112px;letter-spacing:0;color:#fff;text-shadow:0 0 14px rgba(255,255,255,.6),0 0 46px rgba(255,92,122,.6)}
+.nt h1 svg{filter:drop-shadow(0 0 14px rgba(255,92,122,.7))}
+.nt .sb{width:min(620px,100%);height:50px;border-radius:14px;background:rgba(8,8,10,.78);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.nt .sb:focus-within{border-color:var(--hib);transform:scale(1.015)}
+.tiles{gap:10px;max-width:780px}
+.tile{flex-direction:row;width:auto;padding:8px 16px;gap:8px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(8,8,10,.7);backdrop-filter:blur(10px)}
+.tile:hover{border-color:var(--hib);background:rgba(255,92,122,.12);transform:translateY(-2px)}
+.tile i{width:18px;height:18px;background:none;box-shadow:none;color:var(--text)}
+.tile i iconify-icon{width:18px!important;height:18px!important}.tile i svg{width:18px;height:18px}
+.chipbtn{background:rgba(8,8,10,.75);border:1px solid rgba(255,255,255,.1)}
+
+/* ---- toolbar ---- */
+#toolbar{background:#050506;border-bottom:1px solid var(--line)}
+#omniw{max-width:720px;margin:0 auto}
+#omni{background:#0b0b0d;border:1px solid var(--line);border-radius:12px}
+#omni:focus-within{border-color:var(--hib);background:#0b0b0d}
+#bCoin .fl{color:var(--hib2)}
+
+/* ---- sidebar layout (desktop/tablet) ---- */
+@media(min-width:700px){
+ #app{display:grid;grid-template-columns:250px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
+ #app::before{content:"";grid-area:1/1/4/2;border-right:1px solid var(--line);background:linear-gradient(180deg,#000 0%,#000 45%,rgba(219,88,68,.14) 78%,rgba(255,92,122,.3) 100%)}
+ #toolbar{grid-area:1/2/2/3}
+ #main{grid-area:2/2/4/3}
+ #tabstrip{grid-area:1/1/3/2;flex-direction:column;align-items:stretch;height:auto;padding:14px 12px 8px;min-height:0}
+ #bmbar{grid-area:3/1/4/2;flex-direction:column;align-items:stretch;gap:2px;padding:10px 12px 14px;overflow:visible;border:0;background:none}
+ #tabSearch{display:none}
+ #newtab{order:-1;width:44px;height:44px;border-radius:12px;margin:0 0 14px;background:var(--surf2);border:1px solid var(--line);color:var(--text)}
+ #newtab:hover{border-color:var(--hib)}
+ #tabs{flex-direction:column;align-items:stretch;gap:4px;overflow-y:auto;overflow-x:hidden;min-height:0}
+ .tab{flex:0 0 auto;height:38px;max-width:none;margin:0;padding:0 8px 0 12px;border-radius:10px}
+ .tab:not(.active):hover{border-radius:10px}
+ .tab.active{background:#f6f1e6;color:#111;border-radius:10px}
+ .tab.active::before,.tab.active::after{display:none}
+ .tab.pinned{flex:0 0 auto;width:40px;max-width:40px}
+ .tab.closing{height:0;max-height:0}
+ .bm{padding:9px 12px;border-radius:10px;font-size:13.5px;color:var(--mut)}
+ .bm:hover{color:var(--text)}
+ .bm.sep{width:auto;height:1px;margin:6px 0;padding:0;background:var(--line)}
+}
+@media(max-width:699px){#toolbar,#bmbar{background:#050506}}
+</style>
+<script>
+/* Fiji theme: black + hibiscus accent + ColorBends background. Load in <head> BEFORE the main script. */
+(function(){
+  // one-time: switch saved defaults (teal/auto) to hibiscus/dark
+  try{
+    if(!localStorage.getItem('fiji.themeV2')){
+      const s=JSON.parse(localStorage.getItem('fiji.settings')||'{}');
+      s.accent='#ff5c7a';s.mode='dark';
+      localStorage.setItem('fiji.settings',JSON.stringify(s));
+      localStorage.setItem('fiji.themeV2','1');
+    }
+  }catch(e){}
+
+  const font=document.createElement('link');font.rel='stylesheet';
+  font.href='https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap';
+  document.head.appendChild(font);
+
+  const MAX=8;
+  const frag=`
+#define MAX_COLORS ${MAX}
+uniform vec2 uCanvas;uniform float uTime;uniform float uSpeed;uniform vec2 uRot;uniform int uColorCount;
+uniform vec3 uColors[MAX_COLORS];uniform int uTransparent;uniform float uScale;uniform float uFrequency;
+uniform float uWarpStrength;uniform vec2 uPointer;uniform float uMouseInfluence;uniform float uParallax;
+uniform float uNoise;uniform int uIterations;uniform float uIntensity;uniform float uBandWidth;
+varying vec2 vUv;
+void main(){
+  float t=uTime*uSpeed;
+  vec2 p=vUv*2.0-1.0;
+  p+=uPointer*uParallax*0.1;
+  vec2 rp=vec2(p.x*uRot.x-p.y*uRot.y,p.x*uRot.y+p.y*uRot.x);
+  vec2 q=vec2(rp.x*(uCanvas.x/uCanvas.y),rp.y);
+  q/=max(uScale,0.0001);
+  q/=0.5+0.2*dot(q,q);
+  q+=0.2*cos(t)-7.56;
+  vec2 toward=(uPointer-rp);
+  q+=toward*uMouseInfluence*0.2;
+  for(int j=0;j<5;j++){
+    if(j>=uIterations-1)break;
+    vec2 rr=sin(1.5*(q.yx*uFrequency)+2.0*cos(q*uFrequency));
+    q+=(rr-q)*0.15;
+  }
+  vec3 col=vec3(0.0);float a=1.0;
+  vec2 s=q;vec3 sumCol=vec3(0.0);float cover=0.0;
+  for(int i=0;i<MAX_COLORS;++i){
+    if(i>=uColorCount)break;
+    s-=0.01;
+    vec2 r=sin(1.5*(s.yx*uFrequency)+2.0*cos(s*uFrequency));
+    float m0=length(r+sin(5.0*r.y*uFrequency-3.0*t+float(i))/4.0);
+    float kBelow=clamp(uWarpStrength,0.0,1.0);
+    float kMix=pow(kBelow,0.3);
+    float gain=1.0+max(uWarpStrength-1.0,0.0);
+    vec2 disp=(r-s)*kBelow;
+    vec2 warped=s+disp*gain;
+    float m1=length(warped+sin(5.0*warped.y*uFrequency-3.0*t+float(i))/4.0);
+    float m=mix(m0,m1,kMix);
+    float w=1.0-exp(-uBandWidth/exp(uBandWidth*m));
+    sumCol+=uColors[i]*w;
+    cover=max(cover,w);
+  }
+  col=clamp(sumCol,0.0,1.0);
+  a=uTransparent>0?cover:1.0;
+  col*=uIntensity;
+  if(uNoise>0.0001){
+    float n=fract(sin(dot(gl_FragCoord.xy+vec2(uTime),vec2(12.9898,78.233)))*43758.5453123);
+    col+=(n-0.5)*uNoise;col=clamp(col,0.0,1.0);
+  }
+  vec3 rgb=(uTransparent>0)?col*a:col;
+  gl_FragColor=vec4(rgb,a);
+}`;
+  const vert='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.0);}';
+
+  const CFG={rotation:90,speed:.2,colors:['#ff3d6e','#ff8a3d','#db5844','#b0124f'],scale:1,frequency:1,warpStrength:1,
+    mouseInfluence:1,parallax:.5,noise:.15,iterations:1,intensity:1.5,bandWidth:6};
+  const hex3=h=>{h=h.replace('#','');return new THREE.Vector3(parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255)};
+
+  function init(){
+    const main=document.getElementById('main');if(!main||document.getElementById('cb'))return;
+    const box=document.createElement('div');box.id='cb';main.prepend(box);
+    const scene=new THREE.Scene(),cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+    const cols=Array.from({length:MAX},(_,i)=>CFG.colors[i]?hex3(CFG.colors[i]):new THREE.Vector3());
+    const mat=new THREE.ShaderMaterial({vertexShader:vert,fragmentShader:frag,transparent:true,premultipliedAlpha:true,uniforms:{
+      uCanvas:{value:new THREE.Vector2(1,1)},uTime:{value:0},uSpeed:{value:CFG.speed},uRot:{value:new THREE.Vector2(1,0)},
+      uColorCount:{value:CFG.colors.length},uColors:{value:cols},uTransparent:{value:1},uScale:{value:CFG.scale},
+      uFrequency:{value:CFG.frequency},uWarpStrength:{value:CFG.warpStrength},uPointer:{value:new THREE.Vector2()},
+      uMouseInfluence:{value:CFG.mouseInfluence},uParallax:{value:CFG.parallax},uNoise:{value:CFG.noise},
+      uIterations:{value:CFG.iterations},uIntensity:{value:CFG.intensity},uBandWidth:{value:CFG.bandWidth}}});
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),mat));
+    const r=new THREE.WebGLRenderer({antialias:false,alpha:true,powerPreference:'high-performance'});
+    r.setPixelRatio(Math.min(devicePixelRatio||1,2));r.setClearColor(0x000000,0);box.appendChild(r.domElement);
+    const size=()=>{const w=box.clientWidth||1,h=box.clientHeight||1;r.setSize(w,h,false);mat.uniforms.uCanvas.value.set(w,h)};
+    size();new ResizeObserver(size).observe(box);
+    const tgt=new THREE.Vector2(),cur=new THREE.Vector2();
+    document.addEventListener('pointermove',e=>{const b=box.getBoundingClientRect();
+      tgt.set(((e.clientX-b.left)/(b.width||1))*2-1,-(((e.clientY-b.top)/(b.height||1))*2-1))});
+    const clock=new THREE.Clock();
+    const rad=CFG.rotation*Math.PI/180;mat.uniforms.uRot.value.set(Math.cos(rad),Math.sin(rad));
+    (function loop(){
+      requestAnimationFrame(loop);
+      const dt=clock.getDelta();
+      if(!document.querySelector('.view.on .nt'))return; // only draw on the new tab page
+      mat.uniforms.uTime.value=clock.elapsedTime;
+      cur.lerp(tgt,Math.min(1,dt*8));mat.uniforms.uPointer.value.copy(cur);
+      r.render(scene,cam);
+    })();
+  }
+
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  s.onload=()=>{document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init()};
+  document.head.appendChild(s);
+})();
+</script>
 </head>
 <body>
 <div id="app">
