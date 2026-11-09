@@ -1,0 +1,1674 @@
+<!--
+  Fiji VM — Hyperbeam-powered virtual browser for Fiji.
+  Save this as vm/index.html, set HYPERBEAM_API below, then open fiji://vm.
+
+  Optional: HYPERBEAM_PROXY if your browser blocks Hyperbeam's REST API (CORS).
+  The page also styles its host iframe when it's embedded same-origin, so you get
+  the tinted/blurred rounded glass panel with Fiji's animated background behind it.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fiji VM</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='%23ff5c7a'%3E%3Cpath d='M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z'/%3E%3Cpath transform='rotate(72 32 32)' d='M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z'/%3E%3Cpath transform='rotate(144 32 32)' d='M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z'/%3E%3Cpath transform='rotate(216 32 32)' d='M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z'/%3E%3Cpath transform='rotate(288 32 32)' d='M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z'/%3E%3C/g%3E%3Ccircle cx='32' cy='32' r='4' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
+<style>
+:root{
+  --hib:#ff5c7a;
+  --hib2:#ff8a3d;
+  --coral:#db5844;
+  --ink:#f5f0ef;
+  --mut:#9d9093;
+  --line:rgba(255,255,255,.1);
+  --line-soft:rgba(255,255,255,.07);
+  --glass:rgba(10,10,12,.55);
+  --glass2:rgba(14,14,17,.72);
+  --ok:#5de08a;
+  --warn:#ffc933;
+  --danger:#ff6b6b;
+  --radius:24px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --spring:cubic-bezier(.34,1.56,.64,1);
+}
+*{box-sizing:border-box}
+html{height:100%;background:transparent}
+body{
+  height:100%;margin:0;
+  background:#030304;
+  color:var(--ink);
+  font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+body.embedded{background:transparent}
+body.embedded .aura{display:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+input{font:inherit;color:inherit}
+a{color:var(--hib)}
+[hidden]{display:none!important}
+::selection{background:rgba(255,92,122,.4)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.28);background-clip:padding-box;border:3px solid transparent}
+
+/* ambient background — only when opened directly */
+.aura{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 18% 8%,rgba(255,92,122,.17),transparent 55%),
+    radial-gradient(ellipse at 82% 92%,rgba(255,138,61,.12),transparent 55%),
+    radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.25),transparent 78%);
+}
+
+.shell{
+  position:relative;z-index:1;
+  height:100%;
+  display:flex;flex-direction:column;
+  min-height:0;
+  border-radius:var(--radius);
+  border:1px solid rgba(255,255,255,.1);
+  background:radial-gradient(ellipse at 50% 30%,rgba(22,22,26,.7),rgba(3,3,4,.94));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 30px 80px rgba(0,0,0,.5);
+  overflow:hidden;
+}
+body.embedded .shell{
+  background:radial-gradient(ellipse at 50% 42%,rgba(0,0,0,.46),rgba(7,7,9,.14) 72%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* ---------- top bar ---------- */
+.topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  border-bottom:1px solid var(--line-soft);
+  flex:none;
+  background:rgba(6,6,8,.28);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-mark{
+  width:32px;height:32px;border-radius:11px;
+  display:grid;place-items:center;flex:none;
+  background:rgba(255,92,122,.1);
+  border:1px solid rgba(255,92,122,.18);
+  box-shadow:0 0 24px rgba(255,92,122,.16);
+}
+.brand-mark svg{width:24px;height:24px;filter:drop-shadow(0 0 10px rgba(255,92,122,.55))}
+.wordmark{
+  font-family:'Pinyon Script',cursive;
+  font-size:31px;line-height:1;letter-spacing:0;
+  white-space:nowrap;
+}
+.wordmark em{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-style:normal;
+  font-size:9.5px;
+  letter-spacing:.18em;
+  font-weight:800;
+  color:var(--mut);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:3px 5px;
+  margin-left:7px;
+  vertical-align:middle;
+}
+.top-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex:none}
+.status-pill{
+  display:inline-flex;align-items:center;gap:7px;
+  height:28px;padding:0 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.055);
+  border:1px solid var(--line-soft);
+  font-size:11.5px;font-weight:600;color:var(--mut);
+  white-space:nowrap;
+}
+.status-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--mut);flex:none}
+.status-pill.live{color:#b8f5cd;border-color:rgba(93,224,138,.22);background:rgba(93,224,138,.07)}
+.status-pill.live .dot{background:var(--ok);box-shadow:0 0 10px rgba(93,224,138,.8)}
+.status-pill.starting{color:#ffd0da;border-color:rgba(255,92,122,.22);background:rgba(255,92,122,.07)}
+.status-pill.starting .dot{background:var(--hib);animation:pulse 1.2s infinite}
+.status-pill.error{color:#ffc1c1;border-color:rgba(255,107,107,.25);background:rgba(255,107,107,.07)}
+.status-pill.error .dot{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.72)}}
+
+.icon-btn{
+  width:34px;height:34px;border-radius:11px;
+  display:grid;place-items:center;flex:none;
+  color:var(--mut);
+  border:1px solid transparent;
+  transition:background .15s,color .15s,transform .15s var(--spring),border-color .15s;
+}
+.icon-btn:hover{background:rgba(255,255,255,.08);color:var(--ink);border-color:var(--line-soft)}
+.icon-btn:active{transform:scale(.92)}
+.icon-btn:disabled{opacity:.3;pointer-events:none}
+.icon-btn.danger{color:#ff8b8b}
+.icon-btn.danger:hover{background:rgba(255,107,107,.12);color:#ffb3b3;border-color:rgba(255,107,107,.25)}
+
+/* ---------- views ---------- */
+.view{display:none;flex:1;min-height:0}
+.view.on{display:flex}
+.start-view.on{overflow:auto;padding:24px}
+.load-view.on{overflow:auto;padding:24px}
+
+/* ---------- start / hero ---------- */
+.hero{
+  margin:auto;
+  width:min(660px,100%);
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;
+  padding:10px 0;
+}
+.hero-mark{
+  width:84px;height:84px;border-radius:26px;
+  display:grid;place-items:center;
+  margin-bottom:18px;
+  background:
+    radial-gradient(circle at 30% 20%,rgba(255,92,122,.32),rgba(255,92,122,.06));
+  border:1px solid rgba(255,92,122,.25);
+  box-shadow:0 0 40px rgba(255,92,122,.18),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.hero-mark svg{width:56px;height:56px;filter:drop-shadow(0 0 14px rgba(255,92,122,.55))}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(255,255,255,.42);
+  margin-bottom:10px;
+}
+.eyebrow::before,.eyebrow::after{
+  content:"";width:22px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,92,122,.75));
+}
+.eyebrow::after{background:linear-gradient(90deg,rgba(255,92,122,.75),transparent)}
+.hero h1{
+  font-family:'Pinyon Script',cursive;
+  font-weight:400;
+  font-size:clamp(58px,9vw,86px);
+  line-height:.9;
+  letter-spacing:0;
+  margin:0 0 12px;
+  color:#fff;
+  text-shadow:0 0 30px rgba(255,92,122,.32),0 4px 30px rgba(0,0,0,.5);
+}
+.lede{
+  max-width:500px;
+  margin:0 0 26px;
+  color:var(--mut);
+  font-size:13.5px;
+  line-height:1.65;
+}
+
+.launch{
+  width:100%;
+  display:flex;align-items:stretch;gap:10px;
+  padding:8px;
+  border-radius:20px;
+  background:rgba(6,6,8,.6);
+  border:1px solid var(--line);
+  box-shadow:0 20px 50px rgba(0,0,0,.35);
+  transition:border-color .2s,box-shadow .2s;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.launch:focus-within{
+  border-color:rgba(255,92,122,.48);
+  box-shadow:0 0 0 4px rgba(255,92,122,.08),0 20px 50px rgba(0,0,0,.35);
+}
+.url-wrap{
+  flex:1;min-width:0;
+  display:flex;align-items:center;gap:9px;
+  padding:0 8px 0 12px;
+  color:var(--mut);
+}
+.url-wrap input{
+  flex:1;min-width:0;height:44px;
+  border:0;outline:0;background:transparent;
+  color:var(--ink);font-size:15px;
+}
+.url-wrap input::placeholder{color:rgba(157,144,147,.6)}
+.primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:44px;padding:0 18px;flex:none;
+  border-radius:14px;
+  background:linear-gradient(135deg,var(--hib),var(--hib2));
+  color:#fff;font-weight:700;font-size:14px;
+  box-shadow:0 10px 30px rgba(255,92,122,.28);
+  transition:filter .18s,transform .18s var(--spring);
+  white-space:nowrap;
+}
+.primary:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.primary:active{transform:scale(.97)}
+.primary:disabled{opacity:.55;pointer-events:none}
+
+.quick{
+  display:flex;gap:8px;flex-wrap:wrap;justify-content:center;
+  margin-top:14px;
+}
+.quick button{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 11px;
+  border-radius:10px;
+  border:1px solid var(--line-soft);
+  background:rgba(255,255,255,.035);
+  color:var(--mut);
+  font-size:12.5px;font-weight:600;
+  transition:color .15s,border-color .15s,background .15s,transform .15s var(--spring);
+}
+.quick button:hover{
+  color:var(--ink);
+  border-color:rgba(255,92,122,.35);
+  background:rgba(255,92,122,.08);
+}
+.quick button:active{transform:scale(.96)}
+
+.meta{
+  display:flex;gap:14px;flex-wrap:wrap;justify-content:center;
+  margin-top:18px;
+  font-size:11px;color:rgba(157,144,147,.75);
+}
+.meta span{display:inline-flex;align-items:center;gap:5px}
+
+.notice{
+  width:100%;
+  display:flex;gap:10px;align-items:flex-start;
+  text-align:left;
+  padding:11px 13px;
+  border-radius:13px;
+  margin-top:16px;
+  background:rgba(255,201,51,.075);
+  border:1px solid rgba(255,201,51,.22);
+  color:#ffd98a;
+  font-size:12.5px;line-height:1.5;
+}
+.notice iconify-icon{flex:none;margin-top:1px;color:#ffd98a}
+.notice b{display:block;color:#ffe6a8;margin-bottom:2px;font-size:12.5px}
+.notice code{
+  background:rgba(0,0,0,.3);
+  padding:1px 5px;border-radius:5px;
+  color:#fff;font-size:11.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.link-btn{
+  padding:0;margin-left:3px;
+  color:var(--hib);
+  font-size:inherit;font-weight:700;
+  text-decoration:underline;text-underline-offset:2px;
+}
+
+/* ---------- loading ---------- */
+.load-card{
+  margin:auto;
+  width:min(420px,100%);
+  text-align:center;
+  padding:30px;
+  border-radius:22px;
+  background:rgba(8,8,10,.6);
+  border:1px solid var(--line);
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+.loader-orbit{
+  position:relative;
+  width:84px;height:84px;
+  margin:0 auto 18px;
+  display:grid;place-items:center;
+}
+.loader-orbit .ring{
+  position:absolute;inset:0;
+  border-radius:50%;
+  border:1px solid rgba(255,92,122,.14);
+  border-top-color:var(--hib);
+  animation:spin 1.1s linear infinite;
+}
+.loader-orbit .ring:nth-child(2){
+  inset:10px;
+  border-top-color:var(--hib2);
+  animation-duration:1.7s;
+  animation-direction:reverse;
+}
+.loader-orbit svg{
+  position:relative;z-index:1;
+  width:36px;height:36px;
+  filter:drop-shadow(0 0 12px rgba(255,92,122,.6));
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-card h2{margin:0 0 6px;font-size:18px;font-weight:700;letter-spacing:-.01em}
+.load-card p{margin:0;color:var(--mut);font-size:12.5px;line-height:1.5}
+.load-bar{
+  height:3px;border-radius:3px;overflow:hidden;
+  background:rgba(255,255,255,.08);
+  margin:18px 0 12px;
+}
+.load-bar i{
+  display:block;height:100%;width:42%;
+  border-radius:3px;
+  background:linear-gradient(90deg,transparent,var(--hib),var(--hib2),transparent);
+  animation:slide 1.35s ease-in-out infinite;
+}
+@keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(270%)}}
+.load-steps{display:flex;gap:6px;justify-content:center;margin-bottom:20px}
+.load-steps i{
+  width:22px;height:3px;border-radius:2px;
+  background:rgba(255,255,255,.12);
+  transition:background .2s,box-shadow .2s;
+}
+.load-steps i.on{background:var(--hib);box-shadow:0 0 8px rgba(255,92,122,.7)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:36px;padding:0 15px;
+  border-radius:10px;
+  font-size:13px;font-weight:700;
+  transition:filter .15s,transform .15s var(--spring),background .15s;
+}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:linear-gradient(135deg,var(--hib),var(--hib2));color:#fff;box-shadow:0 8px 22px rgba(255,92,122,.24)}
+.btn.ghost{background:rgba(255,255,255,.07);color:var(--ink);border:1px solid var(--line-soft)}
+.btn.ghost:hover{background:rgba(255,255,255,.11)}
+.btn.danger{background:linear-gradient(135deg,#ff5c7a,#d64545);color:#fff}
+
+/* ---------- VM ---------- */
+.vm-view.on{flex-direction:column;min-height:0}
+.vm-toolbar{
+  display:flex;align-items:center;gap:5px;
+  padding:8px 10px;
+  border-bottom:1px solid var(--line-soft);
+  background:rgba(6,6,8,.4);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  flex:none;
+}
+.vm-toolbar .icon-btn{width:32px;height:32px;border-radius:9px}
+.hb-url{
+  flex:1;min-width:0;
+  display:flex;align-items:center;gap:7px;
+  height:34px;
+  padding:0 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.045);
+  border:1px solid var(--line-soft);
+  transition:border-color .15s,background .15s;
+}
+.hb-url:focus-within{border-color:rgba(255,92,122,.38);background:rgba(255,255,255,.07)}
+.hb-url .lock{color:var(--mut);flex:none}
+.hb-url input{
+  flex:1;min-width:0;
+  border:0;outline:0;background:transparent;
+  color:var(--ink);font-size:12.5px;
+}
+.hb-url input:disabled{color:var(--mut)}
+
+.stage-wrap{
+  --pad:10px;
+  flex:1;min-height:0;
+  position:relative;
+  display:flex;
+  padding:var(--pad);
+}
+.stage{
+  flex:1;min-height:0;
+  position:relative;
+  border-radius:14px;
+  overflow:hidden;
+  background:#000;
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.3);
+}
+#hbStage > *{
+  position:absolute;
+  inset:0;
+  width:100%!important;
+  height:100%!important;
+}
+#hbStage video,#hbStage canvas{
+  display:block;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain;
+  background:#000;
+}
+.stage-overlay{
+  position:absolute;
+  inset:var(--pad);
+  border-radius:14px;
+  display:grid;place-items:center;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  z-index:2;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+.stage-overlay.on{opacity:1;pointer-events:auto}
+.overlay-card{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  text-align:center;
+  padding:18px 22px;
+  border-radius:16px;
+  background:rgba(8,8,10,.62);
+  border:1px solid var(--line-soft);
+  box-shadow:0 18px 50px rgba(0,0,0,.4);
+}
+.overlay-card b{font-size:13.5px}
+.overlay-card small{color:var(--mut);font-size:11.5px}
+.spinner{
+  width:30px;height:30px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.14);
+  border-top-color:var(--hib);
+  animation:spin .8s linear infinite;
+  margin-bottom:3px;
+}
+.vm-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 14px 10px;
+  font-size:11px;color:rgba(157,144,147,.8);
+  flex:none;
+}
+.foot-state{display:inline-flex;align-items:center;gap:6px}
+.foot-state .dot{width:6px;height:6px;border-radius:50%;background:var(--mut)}
+.foot-state.live .dot{background:var(--ok);box-shadow:0 0 8px rgba(93,224,138,.8)}
+.foot-state.starting .dot{background:var(--hib);animation:pulse 1.2s infinite}
+.foot-state.error .dot{background:var(--danger)}
+
+#stageWrap:fullscreen{
+  --pad:0px;
+  padding:0;
+  background:#000;
+}
+#stageWrap:fullscreen .stage{border-radius:0;border:0}
+#stageWrap:fullscreen .stage-overlay{border-radius:0}
+
+/* ---------- dialog ---------- */
+.dialog-bg{
+  position:fixed;inset:0;z-index:100;
+  display:grid;place-items:center;
+  padding:16px;
+  background:rgba(0,0,0,.62);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  opacity:0;
+  transition:opacity .18s;
+}
+.dialog-bg.on{opacity:1}
+.dialog{
+  width:min(560px,100%);
+  max-height:90dvh;
+  overflow:auto;
+  padding:22px;
+  border-radius:20px;
+  background:rgba(12,12,15,.94);
+  border:1px solid var(--line);
+  box-shadow:0 30px 80px rgba(0,0,0,.7);
+  transform:translateY(6px) scale(.985);
+  transition:transform .22s var(--spring);
+}
+.dialog-bg.on .dialog{transform:none}
+.dialog-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.dialog-head h3{margin:0;font-size:16px;letter-spacing:-.01em;flex:1}
+.dialog-body{color:var(--mut);font-size:13px;line-height:1.55}
+.dialog-body h4{
+  margin:16px 0 6px;
+  font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.55);
+}
+.dialog-body h4:first-child{margin-top:0}
+.dialog-body p{margin:0 0 10px}
+.dialog-body p:last-child{margin-bottom:0}
+.dialog-body code{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.06);
+  padding:1px 5px;border-radius:5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.92em;color:#ffd7df;
+}
+.dialog-body pre{
+  margin:10px 0;
+  padding:12px 14px;
+  border-radius:10px;
+  background:rgba(0,0,0,.45);
+  border:1px solid var(--line-soft);
+  overflow:auto;
+}
+.dialog-body pre code{
+  background:none;border:0;padding:0;
+  color:#e8e2e2;
+  font-size:11.5px;line-height:1.55;
+  white-space:pre;
+}
+.dialog-body a{color:var(--hib)}
+.fine{font-size:11.5px!important;color:rgba(157,144,147,.78)!important}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap}
+.dialog-actions .btn{min-height:34px;padding:0 13px;font-size:12.5px}
+
+/* ---------- toasts ---------- */
+.toasts{
+  position:fixed;left:50%;bottom:20px;
+  transform:translateX(-50%);
+  z-index:120;
+  display:flex;flex-direction:column;gap:7px;align-items:center;
+  pointer-events:none;
+  width:min(420px,calc(100vw - 24px));
+}
+.toast{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 14px;
+  border-radius:999px;
+  background:#101013;
+  border:1px solid rgba(255,255,255,.1);
+  color:#fff;font-size:12.5px;
+  box-shadow:0 14px 40px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(8px) scale(.97);
+  transition:opacity .2s,transform .25s var(--spring);
+  max-width:100%;
+}
+.toast.on{opacity:1;transform:none}
+.toast iconify-icon{color:var(--hib);flex:none}
+.toast span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- mobile ---------- */
+@media (max-width:640px){
+  .topbar{padding:10px 12px;gap:8px}
+  .wordmark{font-size:26px}
+  .brand-mark{width:28px;height:28px;border-radius:9px}
+  .brand-mark svg{width:21px;height:21px}
+  .status-pill{font-size:10.5px;height:26px;padding:0 8px}
+  .icon-btn{width:32px;height:32px}
+  .start-view.on{padding:16px}
+  .hero-mark{width:70px;height:70px;border-radius:22px}
+  .hero-mark svg{width:46px;height:46px}
+  .hero h1{font-size:clamp(52px,15vw,72px)}
+  .lede{font-size:12.5px;margin-bottom:20px}
+  .launch{flex-direction:column;padding:8px}
+  .url-wrap{padding:0 8px}
+  .url-wrap input{height:42px;font-size:16px}
+  .primary{width:100%;height:44px}
+  .quick{gap:6px}
+  .quick button{font-size:11.5px;padding:6px 9px}
+  .meta{font-size:10.5px;gap:9px;margin-top:14px}
+  .load-card{padding:22px 18px}
+  .vm-toolbar{flex-wrap:wrap;gap:4px;padding:6px}
+  .vm-toolbar .icon-btn{width:30px;height:30px}
+  .hb-url{order:-1;flex:1 0 100%;height:32px}
+  .stage-wrap{--pad:6px}
+  .vm-foot{padding:5px 10px 8px}
+  .dialog{padding:18px;border-radius:18px}
+  .dialog-actions .btn{flex:1}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="aura" aria-hidden="true"></div>
+
+<main class="shell" id="shell">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64">
+          <defs>
+            <linearGradient id="hgA" x1="10" y1="4" x2="54" y2="60" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ff8a3d"/><stop offset=".55" stop-color="#ff5c7a"/><stop offset="1" stop-color="#db5844"/>
+            </linearGradient>
+          </defs>
+          <g fill="url(#hgA)" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round">
+            <path d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(72 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(144 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(216 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(288 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+          </g>
+          <path d="M32 32 41 14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="41.5" cy="13" r="2.8" fill="#fff"/>
+          <circle cx="32" cy="32" r="4" fill="#fff"/>
+        </svg>
+      </span>
+      <span class="wordmark">Fiji <em>VM</em></span>
+    </div>
+    <div class="top-actions">
+      <span class="status-pill" id="statusPill"><i class="dot"></i><span id="statusText">Ready</span></span>
+      <button class="icon-btn" id="helpBtn" type="button" title="Setup &amp; help" aria-label="Setup and help">
+        <iconify-icon icon="lucide:circle-help" width="18"></iconify-icon>
+      </button>
+    </div>
+  </header>
+
+  <!-- START -->
+  <section class="view start-view on" id="startView">
+    <div class="hero">
+      <div class="hero-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64">
+          <defs>
+            <linearGradient id="hgB" x1="10" y1="4" x2="54" y2="60" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ff8a3d"/><stop offset=".55" stop-color="#ff5c7a"/><stop offset="1" stop-color="#db5844"/>
+            </linearGradient>
+          </defs>
+          <g fill="url(#hgB)" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round">
+            <path d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(72 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(144 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(216 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(288 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+          </g>
+          <path d="M32 32 41 14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="41.5" cy="13" r="2.8" fill="#fff"/>
+          <circle cx="32" cy="32" r="4" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Hyperbeam inside</div>
+      <h1>Fiji VM</h1>
+      <p class="lede">A full Chromium browser, streamed live from Hyperbeam into Fiji. Type an address and go anywhere without leaving the tab.</p>
+
+      <form class="launch" id="startForm">
+        <label class="url-wrap">
+          <iconify-icon icon="lucide:globe-2" width="18"></iconify-icon>
+          <input id="startUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+                 placeholder="Search or enter an address" value="https://duckduckgo.com">
+        </label>
+        <button class="primary" type="submit" id="startBtn">
+          <span>Start VM</span>
+          <iconify-icon icon="lucide:arrow-up-right" width="17"></iconify-icon>
+        </button>
+      </form>
+
+      <div class="quick" id="quickLinks">
+        <button type="button" data-url="https://www.google.com">
+          <iconify-icon icon="logos:google-icon" width="14"></iconify-icon> Google
+        </button>
+        <button type="button" data-url="https://www.youtube.com">
+          <iconify-icon icon="mdi:youtube" width="16"></iconify-icon> YouTube
+        </button>
+        <button type="button" data-url="https://en.wikipedia.org">
+          <iconify-icon icon="simple-icons:wikipedia" width="14"></iconify-icon> Wikipedia
+        </button>
+        <button type="button" data-url="https://discord.com/app">
+          <iconify-icon icon="mdi:discord" width="15"></iconify-icon> Discord
+        </button>
+      </div>
+
+      <div class="notice" id="keyNotice" hidden>
+        <iconify-icon icon="lucide:key-round" width="17"></iconify-icon>
+        <div>
+          <b>Add your Hyperbeam key</b>
+          <span>Set <code>HYPERBEAM_API</code> at the top of <code>vm/index.html</code>.</span>
+          <button type="button" class="link-btn" id="keyHelpBtn">Setup &amp; help</button>
+        </div>
+      </div>
+
+      <div class="meta">
+        <span><iconify-icon icon="lucide:monitor" width="13"></iconify-icon> 1280 × 720</span>
+        <span><iconify-icon icon="lucide:scan-text" width="13"></iconify-icon> Sharp text</span>
+        <span><iconify-icon icon="lucide:shield" width="13"></iconify-icon> Ad-block on</span>
+        <span><iconify-icon icon="lucide:clock-3" width="13"></iconify-icon> 30 min idle timeout</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOADING -->
+  <section class="view load-view" id="loadView">
+    <div class="load-card">
+      <div class="loader-orbit">
+        <span class="ring"></span>
+        <span class="ring"></span>
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <g fill="#ff5c7a">
+            <path d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(72 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(144 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(216 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+            <path transform="rotate(288 32 32)" d="M32 32C20 28 17 12 32 4C47 12 44 28 32 32Z"/>
+          </g>
+          <circle cx="32" cy="32" r="4" fill="#fff"/>
+        </svg>
+      </div>
+      <h2 id="loadTitle">Starting your browser…</h2>
+      <p id="loadSub">Creating a secure Hyperbeam session.</p>
+      <div class="load-bar"><i></i></div>
+      <div class="load-steps" id="loadSteps"><i class="on"></i><i></i><i></i></div>
+      <button class="btn ghost" type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </section>
+
+  <!-- VM -->
+  <section class="view vm-view" id="vmView">
+    <div class="vm-toolbar">
+      <button class="icon-btn" id="hbBack" type="button" title="Back" aria-label="Back" disabled>
+        <iconify-icon icon="lucide:arrow-left" width="17"></iconify-icon>
+      </button>
+      <button class="icon-btn" id="hbFwd" type="button" title="Forward" aria-label="Forward" disabled>
+        <iconify-icon icon="lucide:arrow-right" width="17"></iconify-icon>
+      </button>
+      <button class="icon-btn" id="hbReload" type="button" title="Reload" aria-label="Reload" disabled>
+        <iconify-icon icon="lucide:rotate-cw" width="16"></iconify-icon>
+      </button>
+      <form class="hb-url" id="hbGoForm">
+        <span class="lock" aria-hidden="true">
+          <iconify-icon icon="lucide:lock-keyhole" width="14"></iconify-icon>
+        </span>
+        <input id="hbUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="Address" disabled aria-label="Address">
+      </form>
+      <button class="icon-btn" id="hbMute" type="button" title="Mute" aria-label="Mute" disabled>
+        <iconify-icon icon="lucide:volume-2" width="17"></iconify-icon>
+      </button>
+      <button class="icon-btn" id="hbFull" type="button" title="Fullscreen" aria-label="Fullscreen" disabled>
+        <iconify-icon icon="lucide:maximize-2" width="17"></iconify-icon>
+      </button>
+      <button class="icon-btn danger" id="hbEnd" type="button" title="End session" aria-label="End session" disabled>
+        <iconify-icon icon="lucide:power" width="17"></iconify-icon>
+      </button>
+    </div>
+
+    <div class="stage-wrap" id="stageWrap">
+      <div class="stage" id="hbStage"></div>
+      <div class="stage-overlay on" id="stageOverlay">
+        <div class="overlay-card">
+          <span class="spinner"></span>
+          <b id="overlayTitle">Connecting to your browser…</b>
+          <small id="overlaySub">A secure stream is being set up.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="vm-foot">
+      <span class="foot-state" id="footState"><i class="dot"></i><span>Idle</span></span>
+      <span id="sessionTime">00:00</span>
+    </div>
+  </section>
+</main>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="dialog-bg" id="dialogBg" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <div class="dialog-head">
+      <h3 id="dialogTitle">Fiji VM</h3>
+      <button class="icon-btn" id="dialogClose" type="button" title="Close" aria-label="Close">
+        <iconify-icon icon="lucide:x" width="17"></iconify-icon>
+      </button>
+    </div>
+    <div class="dialog-body" id="dialogBody"></div>
+    <div class="dialog-actions" id="dialogActions"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   HYPERBEAM CONFIG
+   ============================================================ */
+const HYPERBEAM_API = "YOUR_KEY_HERE";
+const HYPERBEAM_PROXY = ""; // optional: "https://your-worker.example.com/create"
+
+const API_BASE = "https://engine.hyperbeam.com/v0";
+const SDK_URL = "https://unpkg.com/@hyperbeam/web@latest/dist/index.js";
+const SDK_FALLBACK = "https://cdn.jsdelivr.net/npm/@hyperbeam/web@latest/dist/index.js";
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  phase: "idle",        // idle | starting | live
+  token: 0,
+  ac: null,
+  session: null,
+  hb: null,
+  timer: null,
+  startedAt: 0,
+  muted: false,
+  ending: false,
+  destroying: false,
+  lastUrl: "https://duckduckgo.com"
+};
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const el = id => document.getElementById(id);
+
+const startView = el("startView");
+const loadView = el("loadView");
+const vmView = el("vmView");
+const statusPill = el("statusPill");
+const statusText = el("statusText");
+const startForm = el("startForm");
+const startUrl = el("startUrl");
+const startBtn = el("startBtn");
+const keyNotice = el("keyNotice");
+const loadTitle = el("loadTitle");
+const loadSub = el("loadSub");
+const loadSteps = el("loadSteps");
+const cancelBtn = el("cancelBtn");
+const hbStage = el("hbStage");
+const stageWrap = el("stageWrap");
+const stageOverlay = el("stageOverlay");
+const overlayTitle = el("overlayTitle");
+const overlaySub = el("overlaySub");
+const hbBack = el("hbBack");
+const hbFwd = el("hbFwd");
+const hbReload = el("hbReload");
+const hbGoForm = el("hbGoForm");
+const hbUrl = el("hbUrl");
+const hbMute = el("hbMute");
+const hbFull = el("hbFull");
+const hbEnd = el("hbEnd");
+const footState = el("footState");
+const sessionTime = el("sessionTime");
+const dialogBg = el("dialogBg");
+const dialogTitle = el("dialogTitle");
+const dialogBody = el("dialogBody");
+const dialogActions = el("dialogActions");
+const dialogClose = el("dialogClose");
+const toasts = el("toasts");
+const helpBtn = el("helpBtn");
+
+/* ============================================================
+   SMALL HELPERS
+   ============================================================ */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
+
+const icon = (name, size = 16) =>
+  `<iconify-icon icon="${name}" width="${size}" height="${size}"></iconify-icon>`;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function hasKey() {
+  const k = String(HYPERBEAM_API || "").trim();
+  return !!k && !/YOUR_KEY_HERE/i.test(k) && k.length > 8;
+}
+
+function normalizeUrl(raw) {
+  let v = String(raw || "").trim();
+  if (!v) return "https://duckduckgo.com";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) return v;
+  if (/^[\w-]+(\.[\w-]+)+([:\/?#].*)?$/.test(v) || /^localhost(:\d+)?([\/?#].*)?$/.test(v)) {
+    return "https://" + v;
+  }
+  return "https://duckduckgo.com/?q=" + encodeURIComponent(v);
+}
+
+/* ============================================================
+   VIEW / STATUS
+   ============================================================ */
+function setView(name) {
+  [["start", startView], ["load", loadView], ["vm", vmView]].forEach(([key, node]) => {
+    node.classList.toggle("on", key === name);
+  });
+}
+
+function setStatus(kind, text) {
+  statusPill.className = "status-pill" + (kind ? " " + kind : "");
+  statusText.textContent = text;
+}
+
+function setFoot(kind, text) {
+  footState.className = "foot-state" + (kind ? " " + kind : "");
+  footState.innerHTML = `<i class="dot"></i><span>${esc(text)}</span>`;
+}
+
+const LOAD_STEPS = [
+  ["Starting your browser", "Creating a secure Hyperbeam session."],
+  ["Waking the browser", "Booting a fresh Chromium instance."],
+  ["Connecting the stream", "Almost there — the video is on its way."]
+];
+
+function setLoadStep(i) {
+  const s = LOAD_STEPS[Math.max(0, Math.min(LOAD_STEPS.length - 1, i))];
+  loadTitle.textContent = s[0] + "…";
+  loadSub.textContent = s[1];
+  $$("i", loadSteps).forEach((n, j) => n.classList.toggle("on", j <= i));
+}
+
+function overlayOn(title, sub) {
+  overlayTitle.textContent = title;
+  overlaySub.textContent = sub || "";
+  stageOverlay.classList.add("on");
+}
+
+function overlayOff() {
+  stageOverlay.classList.remove("on");
+}
+
+function enableToolbar(on) {
+  [hbBack, hbFwd, hbReload, hbMute, hbFull].forEach(b => { b.disabled = !on; });
+  hbUrl.disabled = !on;
+}
+
+function postNav(title) {
+  document.title = title;
+  if (window.parent === window) return;
+  try {
+    window.parent.postMessage({ type: "fiji-nav", title, url: "fiji://vm" }, "*");
+  } catch {}
+}
+
+/* ============================================================
+   DIALOG
+   ============================================================ */
+let dialogOnClose = null;
+let dialogCloseTimer = null;
+
+function showDialog({ title, html, actions = [], onClose = null }) {
+  clearTimeout(dialogCloseTimer);
+  dialogOnClose = onClose;
+  dialogTitle.textContent = title;
+  dialogBody.innerHTML = html;
+  dialogActions.innerHTML = "";
+
+  actions.forEach(a => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn " + (a.style || "ghost");
+    b.textContent = a.label;
+    b.onclick = () => {
+      if (typeof a.onClick === "function") a.onClick();
+      else closeDialog();
+    };
+    dialogActions.appendChild(b);
+  });
+
+  dialogBg.hidden = false;
+  requestAnimationFrame(() => dialogBg.classList.add("on"));
+}
+
+function closeDialog() {
+  const cb = dialogOnClose;
+  dialogOnClose = null;
+  dialogBg.classList.remove("on");
+  clearTimeout(dialogCloseTimer);
+  dialogCloseTimer = setTimeout(() => { dialogBg.hidden = true; }, 190);
+  if (cb) cb();
+}
+
+function confirmDialog(title, html, okLabel = "Confirm", danger = true) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = v => {
+      if (settled) return;
+      settled = true;
+      resolve(v);
+      closeDialog();
+    };
+    showDialog({
+      title,
+      html,
+      onClose: () => {
+        if (!settled) { settled = true; resolve(false); }
+      },
+      actions: [
+        { label: "Cancel", style: "ghost", onClick: () => finish(false) },
+        { label: okLabel, style: danger ? "danger" : "primary", onClick: () => finish(true) }
+      ]
+    });
+  });
+}
+
+function toast(msg, iconName = "sparkles") {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.innerHTML = `${icon(iconName, 15)}<span>${esc(msg)}</span>`;
+  toasts.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("on"));
+  setTimeout(() => {
+    t.classList.remove("on");
+    setTimeout(() => t.remove(), 280);
+  }, 3200);
+}
+
+/* ============================================================
+   HELP / ERROR DIALOGS
+   ============================================================ */
+const HELP_HTML = `
+<h4>1. Paste your key</h4>
+<p>At the top of <code>vm/index.html</code>:</p>
+<pre><code>const HYPERBEAM_API = "YOUR_KEY_HERE";</code></pre>
+<p>Get a key from <a href="https://hyperbeam.com" target="_blank" rel="noopener">hyperbeam.com</a>.</p>
+
+<h4>2. Start a browser</h4>
+<p>Type an address on the start screen and press <b>Start VM</b>. Hyperbeam creates a Chromium session and Fiji streams it here.</p>
+
+<h4>If the API is blocked</h4>
+<p>Browsers often block direct calls to Hyperbeam's REST API (CORS). Set <code>HYPERBEAM_PROXY</code> to a tiny endpoint that forwards the POST body to <code>https://engine.hyperbeam.com/v0/vm</code> with your key.</p>
+<pre><code>// example: Cloudflare Worker
+export default {
+  async fetch(req, env) {
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS"
+        }
+      });
+    }
+
+    const r = await fetch("https://engine.hyperbeam.com/v0/vm", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + env.HYPERBEAM_KEY,
+        "Content-Type": "application/json"
+      },
+      body: await req.text()
+    });
+
+    return new Response(r.body, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json"
+      }
+    });
+  }
+}</code></pre>
+<p class="fine">Heads up: the key is hardcoded in this HTML, so anyone who can open the page can read it. Keep this page private or move the key into the proxy.</p>
+`;
+
+function showHelpDialog() {
+  showDialog({
+    title: "How Fiji VM works",
+    html: HELP_HTML,
+    actions: [{ label: "Done", style: "primary" }]
+  });
+}
+
+function showKeyDialog() {
+  showDialog({
+    title: "Add your Hyperbeam key",
+    html: `
+      <p>Open <code>vm/index.html</code> and set the key at the top of the script:</p>
+      <pre><code>const HYPERBEAM_API = "YOUR_KEY_HERE";</code></pre>
+      <p>Then reload this page. If your browser blocks Hyperbeam's API, the setup guide shows the proxy fallback.</p>
+    `,
+    actions: [
+      {
+        label: "Setup guide",
+        style: "primary",
+        onClick: () => {
+          closeDialog();
+          setTimeout(showHelpDialog, 210);
+        }
+      },
+      { label: "Close" }
+    ]
+  });
+}
+
+function showCorsDialog() {
+  showDialog({
+    title: "Hyperbeam blocked the request",
+    html: `
+      <p>This page called Hyperbeam's REST API directly and the browser stopped it (CORS). The API is designed to be called from a server.</p>
+      <p>Set <code>HYPERBEAM_PROXY</code> to a tiny endpoint that forwards the POST body to <code>https://engine.hyperbeam.com/v0/vm</code>, then try again.</p>
+      <pre><code>const HYPERBEAM_PROXY = "https://your-worker.example.com/create";</code></pre>
+      <p>See <b>Setup &amp; help</b> for a Cloudflare Worker example.</p>
+    `,
+    actions: [
+      {
+        label: "Setup guide",
+        style: "primary",
+        onClick: () => {
+          closeDialog();
+          setTimeout(showHelpDialog, 210);
+        }
+      },
+      {
+        label: "Try again",
+        onClick: () => {
+          closeDialog();
+          setTimeout(() => startSession(state.lastUrl), 210);
+        }
+      },
+      { label: "Close" }
+    ]
+  });
+}
+
+function showErrorDialog(err) {
+  if (err && err.cors) return showCorsDialog();
+
+  if (err && err.status === 401) {
+    return showDialog({
+      title: "Hyperbeam rejected the key",
+      html: `
+        <p>Double-check <code>HYPERBEAM_API</code>. The key may be wrong, revoked, or from a different Hyperbeam project.</p>
+        <p class="fine">${esc(err.message || "")}</p>
+      `,
+      actions: [{ label: "Close" }]
+    });
+  }
+
+  if (err && err.status === 429) {
+    return showDialog({
+      title: "Slow down a moment",
+      html: `
+        <p>Hyperbeam is rate-limiting this key. Wait a few seconds and try again.</p>
+        <p class="fine">${esc(err.message || "")}</p>
+      `,
+      actions: [{ label: "Close" }]
+    });
+  }
+
+  showDialog({
+    title: "Couldn't start the VM",
+    html: `<p>${esc(err && err.message ? err.message : "Something went wrong while creating the session.")}</p>`,
+    actions: [
+      {
+        label: "Try again",
+        style: "primary",
+        onClick: () => {
+          closeDialog();
+          setTimeout(() => startSession(state.lastUrl), 210);
+        }
+      },
+      { label: "Close" }
+    ]
+  });
+}
+
+/* ============================================================
+   HYPERBEAM SESSION CREATION
+   ============================================================ */
+async function makeHttpError(response) {
+  let msg = "";
+  try {
+    const text = await response.text();
+    try {
+      const j = JSON.parse(text);
+      msg = (j && j.error && j.error.message) || j.message || j.detail || text;
+    } catch {
+      msg = text;
+    }
+  } catch {}
+  const err = new Error(msg || `Hyperbeam returned ${response.status}.`);
+  err.status = response.status;
+  return err;
+}
+
+async function postJson(url, body, headers, signal) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body,
+    signal
+  });
+
+  if (!response.ok) throw await makeHttpError(response);
+
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const err = new Error("Hyperbeam returned an unexpected response.");
+    err.status = response.status;
+    throw err;
+  }
+}
+
+async function createSession(startUrlValue, signal) {
+  const payload = {
+    start_url: startUrlValue,
+    width: 1280,
+    height: 720,
+    fps: 30,
+    quality: { mode: "sharp" },
+    adblock: true,
+    dark: true,
+    timeout: {
+      offline: 1800,    // 30 min with nobody connected
+      inactive: 1800,   // 30 min without input
+      absolute: 7200,   // 2 h hard cap
+      warning: 60
+    }
+  };
+
+  const body = JSON.stringify(payload);
+
+  if (HYPERBEAM_PROXY) {
+    return postJson(HYPERBEAM_PROXY, body, {}, signal);
+  }
+
+  try {
+    return await postJson(
+      `${API_BASE}/vm`,
+      body,
+      { Authorization: `Bearer ${HYPERBEAM_API}` },
+      signal
+    );
+  } catch (err) {
+    if (err.name === "AbortError" || err.status) throw err;
+    if (err.name !== "TypeError") throw err;
+    const e = new Error("CORS_BLOCKED");
+    e.cors = true;
+    throw e;
+  }
+}
+
+function deleteSession(id) {
+  if (!id) return;
+  try {
+    fetch(`${API_BASE}/vm/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${HYPERBEAM_API}` }
+    }).catch(() => {});
+  } catch {}
+}
+
+async function loadHyperbeam() {
+  try {
+    const mod = await import(SDK_URL);
+    return mod.default;
+  } catch {
+    const mod = await import(SDK_FALLBACK);
+    return mod.default;
+  }
+}
+
+/* ============================================================
+   SESSION LIFECYCLE
+   ============================================================ */
+function startTimer() {
+  stopTimer();
+  state.startedAt = Date.now();
+  tickTimer();
+  state.timer = setInterval(tickTimer, 1000);
+}
+
+function tickTimer() {
+  const sec = Math.max(0, Math.floor((Date.now() - state.startedAt) / 1000));
+  sessionTime.textContent =
+    String(Math.floor(sec / 60)).padStart(2, "0") + ":" +
+    String(sec % 60).padStart(2, "0");
+}
+
+function stopTimer() {
+  clearInterval(state.timer);
+  state.timer = null;
+  sessionTime.textContent = "00:00";
+}
+
+function cleanupLocal() {
+  stopTimer();
+
+  try { state.ac?.abort(); } catch {}
+  state.ac = null;
+
+  const hb = state.hb;
+  state.hb = null;
+  state.session = null;
+
+  state.destroying = true;
+  if (hb) {
+    try { hb.destroy(); } catch {}
+  }
+  state.destroying = false;
+
+  hbStage.innerHTML = "";
+  overlayOff();
+  enableToolbar(false);
+  hbEnd.disabled = true;
+  startBtn.disabled = false;
+
+  state.muted = false;
+  hbMute.innerHTML = icon("lucide:volume-2", 17);
+  hbMute.title = "Mute";
+
+  postNav("Fiji VM");
+}
+
+async function startSession(rawUrl) {
+  const url = normalizeUrl(rawUrl);
+  state.lastUrl = url;
+
+  if (!hasKey()) {
+    showKeyDialog();
+    return;
+  }
+
+  if (state.phase !== "idle") return;
+
+  state.phase = "starting";
+  const token = ++state.token;
+  state.ac = new AbortController();
+
+  setView("load");
+  setStatus("starting", "Starting");
+  setFoot("starting", "Starting");
+  setLoadStep(0);
+  startBtn.disabled = true;
+  postNav("Fiji VM · Starting");
+
+  try {
+    const session = await createSession(url, state.ac.signal);
+
+    if (token !== state.token) {
+      if (session && session.session_id) deleteSession(session.session_id);
+      return;
+    }
+
+    if (!session || !session.embed_url) {
+      throw new Error("Hyperbeam didn't return an embed URL.");
+    }
+
+    state.session = session;
+    setView("vm");
+    overlayOn("Waking your browser…", "Chromium is booting inside Hyperbeam.");
+    enableToolbar(false);
+    hbEnd.disabled = false;
+    hbUrl.value = url;
+    setLoadStep(1);
+
+    const Hyperbeam = await loadHyperbeam();
+
+    if (token !== state.token) {
+      deleteSession(session.session_id);
+      return;
+    }
+
+    hbStage.innerHTML = "";
+
+    const hb = await Hyperbeam(hbStage, session.embed_url, {
+      adminToken: session.admin_token,
+      delegateKeyboard: true,
+      volume: 0.8,
+      timeout: 30000,
+
+      onConnectionStateChange: ({ state: s }) => {
+        if (token !== state.token) return;
+
+        if (s === "playing") {
+          overlayOff();
+          enableToolbar(true);
+          setStatus("live", "Live");
+          setFoot("live", "Connected");
+          postNav("Fiji VM · Live");
+          if (!state.timer) startTimer();
+        } else if (s === "reconnecting") {
+          overlayOn("Reconnecting…", "The stream dropped. Trying again.");
+          setStatus("starting", "Reconnecting");
+          setFoot("starting", "Reconnecting");
+        } else {
+          overlayOn("Connecting to your browser…", "A secure stream is being set up.");
+          setStatus("starting", "Connecting");
+          setFoot("starting", "Connecting");
+        }
+      },
+
+      onDisconnect: ({ type }) => {
+        if (state.ending || state.destroying || !state.session) return;
+        if (token !== state.token) return;
+        cleanupAfterDisconnect(type);
+      },
+
+      onCloseWarning: ({ deadline }) => {
+        if (deadline && deadline.delay < 120000) {
+          toast("Session ends soon — move your mouse to keep it alive.", "clock-3");
+        }
+      }
+    });
+
+    if (token !== state.token) {
+      try { hb.destroy(); } catch {}
+      return;
+    }
+
+    state.hb = hb;
+    state.phase = "live";
+    hbEnd.disabled = false;
+    setLoadStep(2);
+
+    try {
+      hb.tabs.onUpdated.addListener((tabId, info) => {
+        if (info && info.url) hbUrl.value = info.url;
+        if (info && info.title) postNav("Fiji VM · " + info.title);
+      });
+    } catch {}
+
+  } catch (err) {
+    if (token !== state.token || err.name === "AbortError") return;
+
+    const session = state.session;
+    state.phase = "idle";
+    cleanupLocal();
+
+    if (session && session.session_id) deleteSession(session.session_id);
+
+    setView("start");
+    setStatus("error", "Couldn't start");
+    setFoot("", "Idle");
+    showErrorDialog(err);
+  }
+}
+
+function cleanupAfterDisconnect(type) {
+  const session = state.session;
+  state.token++;
+  cleanupLocal();
+  state.phase = "idle";
+
+  setView("start");
+  setStatus("", "Ready");
+  setFoot("", "Idle");
+
+  if (session && session.session_id) deleteSession(session.session_id);
+
+  const msg = type === "inactive"
+    ? "Session ended after inactivity."
+    : type === "absolute"
+      ? "Session reached its time limit."
+      : type === "kick"
+        ? "You were removed from the session."
+        : "Session ended.";
+
+  toast(msg, "power");
+}
+
+function cancelStart() {
+  if (state.phase !== "starting") return;
+
+  state.token++;
+  const session = state.session;
+
+  cleanupLocal();
+  state.phase = "idle";
+
+  setView("start");
+  setStatus("", "Ready");
+  setFoot("", "Idle");
+
+  if (session && session.session_id) deleteSession(session.session_id);
+
+  toast("Start cancelled", "x");
+}
+
+async function endSession() {
+  if (!state.session && !state.hb) return;
+
+  const ok = await confirmDialog(
+    "End this VM session?",
+    "The virtual browser will shut down. Anything you were doing in it is lost.",
+    "End session"
+  );
+
+  if (!ok) return;
+
+  state.ending = true;
+  state.token++;
+
+  const session = state.session;
+  try { state.ac?.abort(); } catch {}
+
+  cleanupLocal();
+  state.phase = "idle";
+
+  setView("start");
+  setStatus("", "Ready");
+  setFoot("", "Idle");
+
+  if (session && session.session_id) deleteSession(session.session_id);
+
+  state.ending = false;
+  toast("VM session ended", "power");
+}
+
+/* ============================================================
+   VM TOOLBAR
+   ============================================================ */
+function goToUrl() {
+  if (!state.hb) return;
+  const raw = hbUrl.value.trim();
+  if (!raw) return;
+  const url = normalizeUrl(raw);
+  hbUrl.value = url;
+  try {
+    state.hb.tabs.update({ url });
+  } catch {
+    toast("Couldn't navigate", "circle-alert");
+  }
+}
+
+function toggleMute() {
+  if (!state.hb) return;
+  state.muted = !state.muted;
+  state.hb.volume = state.muted ? 0 : 0.8;
+  hbMute.innerHTML = icon(state.muted ? "lucide:volume-x" : "lucide:volume-2", 17);
+  hbMute.title = state.muted ? "Unmute" : "Mute";
+}
+
+async function toggleFullscreen() {
+  try {
+    if (!document.fullscreenElement) {
+      await stageWrap.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch {
+    toast("Fullscreen isn't available here", "circle-alert");
+  }
+}
+
+function bindUI() {
+  startForm.addEventListener("submit", e => {
+    e.preventDefault();
+    startSession(startUrl.value);
+  });
+
+  startUrl.addEventListener("focus", () => startUrl.select());
+
+  $$("#quickLinks [data-url]").forEach(b => {
+    b.addEventListener("click", () => {
+      const url = b.dataset.url;
+      startUrl.value = url;
+      startSession(url);
+    });
+  });
+
+  cancelBtn.addEventListener("click", cancelStart);
+  el("keyHelpBtn").addEventListener("click", showHelpDialog);
+  helpBtn.addEventListener("click", showHelpDialog);
+
+  hbGoForm.addEventListener("submit", e => {
+    e.preventDefault();
+    goToUrl();
+  });
+  hbUrl.addEventListener("focus", () => hbUrl.select());
+
+  hbBack.addEventListener("click", () => {
+    try { state.hb?.tabs.goBack(); } catch { toast("Can't go back", "circle-alert"); }
+  });
+
+  hbFwd.addEventListener("click", () => {
+    try { state.hb?.tabs.goForward(); } catch { toast("Can't go forward", "circle-alert"); }
+  });
+
+  hbReload.addEventListener("click", () => {
+    try { state.hb?.tabs.reload(); } catch { toast("Couldn't reload", "circle-alert"); }
+  });
+
+  hbMute.addEventListener("click", toggleMute);
+  hbFull.addEventListener("click", toggleFullscreen);
+  hbEnd.addEventListener("click", endSession);
+
+  dialogClose.addEventListener("click", closeDialog);
+  dialogBg.addEventListener("mousedown", e => {
+    if (e.target === dialogBg) closeDialog();
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !dialogBg.hidden) closeDialog();
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    hbFull.innerHTML = icon(
+      document.fullscreenElement ? "lucide:minimize-2" : "lucide:maximize-2",
+      17
+    );
+    hbFull.title = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+  });
+
+  window.addEventListener("pagehide", () => {
+    try { state.hb?.destroy(); } catch {}
+    const session = state.session;
+    if (session && session.session_id) {
+      try {
+        fetch(`${API_BASE}/vm/${encodeURIComponent(session.session_id)}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${HYPERBEAM_API}` },
+          keepalive: true
+        }).catch(() => {});
+      } catch {}
+    }
+  });
+}
+
+/* ============================================================
+   HOST IFRAME GLASS STYLING
+   ============================================================ */
+function styleHostFrame() {
+  let ok = false;
+
+  try {
+    const fe = window.frameElement;
+    if (fe) {
+      fe.style.background = "rgba(7,7,9,.24)";
+      fe.style.backdropFilter = "blur(24px) saturate(1.35)";
+      fe.style.webkitBackdropFilter = "blur(24px) saturate(1.35)";
+      fe.style.borderRadius = "26px";
+      fe.style.boxShadow = "0 0 0 1px rgba(255,255,255,.08), 0 24px 70px rgba(0,0,0,.55)";
+      fe.style.overflow = "hidden";
+
+      const view = fe.closest(".view");
+      if (view) {
+        view.style.background = "transparent";
+        view.style.padding = "10px";
+        view.style.boxSizing = "border-box";
+        view.style.overflow = "hidden";
+      }
+
+      ok = true;
+    }
+  } catch {}
+
+  if (ok) document.body.classList.add("embedded");
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+keyNotice.hidden = hasKey();
+bindUI();
+styleHostFrame();
+postNav("Fiji VM");
+</script>
+</body>
+</html>
